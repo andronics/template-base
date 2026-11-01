@@ -1,0 +1,19 @@
+# A minimal stack overlay for template-base's own tests: it fills every slot and adds one
+# drop-in, and nothing else. A real overlay (template-obsidian, say) has the same shape.
+_subdirectory: template
+_templates_suffix: .jinja
+_answers_file: .copier-answers.stack-[[ stub_name ]].yml
+_external_data:
+  base: .copier-answers.base.yml
+_envops:
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  block_start_string: "[%"
+  block_end_string: "%]"
+  keep_trailing_newline: true
+  trim_blocks: true
+  lstrip_blocks: true
+
+stub_name:
+  type: str
+  default: stub

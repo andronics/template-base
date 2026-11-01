@@ -1,0 +1,5 @@
+# GitHub's About box for this repository, applied with
+#   python3 template/scripts/repo-metadata.py --file .github/repository.toml
+description = "Copier base template for metalayerlab projects: AI-assistant instructions, CI, guard rails; a stack overlay goes on top"
+homepage = ""
+topics = ["agents-md", "ai-assisted-development", "copier", "copier-template", "github-actions", "template"]

@@ -1,0 +1,111 @@
+# template-base: the base every metalayerlab project starts from. A stack overlay goes on top.
+#
+#   uvx copier copy --trust gh:andronics/template-base my-project
+#   uvx copier copy --trust gh:andronics/template-<stack> my-project   # then one stack overlay
+#
+# Base never names an overlay: it defines slots and drop-in folders that the stack overlay
+# fills (docs/decisions/0001).
+
+_min_copier_version: "9.6.0"
+_subdirectory: template
+_templates_suffix: .jinja
+_answers_file: .copier-answers.base.yml
+
+# GitHub Actions uses ${{ }}, so Jinja uses [[ ]] / [% %] instead and the
+# workflows need no {% raw %} blocks.
+_envops:
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  block_start_string: "[%"
+  block_end_string: "%]"
+  comment_start_string: "[#!"
+  comment_end_string: "!#]"
+  keep_trailing_newline: true
+  trim_blocks: true
+  lstrip_blocks: true
+
+# Written once, then the project's: `copier update` never touches them again.
+_skip_if_exists:
+  - .github/repository.toml
+
+# git init, scripts/bootstrap.d/*, pre-commit. Needs --trust; without it, run
+# scripts/bootstrap.sh yourself. Only on copy: `copier update` runs tasks before it
+# reapplies the project's edits, so a failing task there silently drops them.
+_tasks:
+  - command: "sh scripts/bootstrap.sh"
+    when: "[[ _copier_operation == 'copy' ]]"
+
+_message_after_copy: |
+  [[ project_name ]] has its base. Next, its stack overlay (it reads .copier-answers.base.yml):
+
+    uvx copier copy --trust gh:andronics/template-<stack> [[ _copier_conf.dst_path ]]
+
+_message_after_update: |
+  Next: resolve any <<<<<<< markers, run sh scripts/post-update.sh, review git diff and commit.
+
+# ---------------------------------------------------------------- questions
+
+project_name:
+  type: str
+  help: Project name, kebab-case (repo, image and CLI name)
+  validator: >-
+    [% if not (project_name | regex_search('^[a-z][a-z0-9]*(-[a-z0-9]+)*$')) %]
+    Use lower-case kebab-case: my-project
+    [% endif %]
+
+description:
+  type: str
+  help: One-line description (README, package manifest, About box)
+  validator: "[% if not description %]Required[% endif %]"
+
+github_owner:
+  type: str
+  help: GitHub owner (organisation or user)
+  default: metalayerlab
+
+code_owners:
+  type: str
+  help: CODEOWNERS for every path (a team or users; required reviewers)
+  default: "@[[ github_owner ]]/maintainers"
+
+dependabot_automerge:
+  type: str
+  help: Queue auto-merge on Dependabot PRs, so a code owner's approval merges them once checks pass? Bigger updates get no auto-merge.
+  choices:
+    "off: a human reviews every update": "off"
+    "patch updates": patch
+    "patch and minor updates": minor
+  default: "off"
+
+license:
+  type: str
+  help: Licence
+  choices:
+    Unlicense (public domain): Unlicense
+    MIT: MIT
+    Apache-2.0: Apache-2.0
+    Proprietary (all rights reserved): Proprietary
+  default: Unlicense
+
+copyright_holder:
+  type: str
+  help: Copyright holder (MIT / Apache / Proprietary)
+  default: "[[ github_owner ]]"
+  when: "[[ license != 'Unlicense' ]]"
+
+personal_data_guard:
+  type: bool
+  help: Add the personal-data guard (fails CI on public IPs / denylisted strings in tracked files)?
+  default: false
+
+# ------------------------------------------------- derived (never asked)
+
+repo_url:
+  type: str
+  default: "https://github.com/[[ github_owner ]]/[[ project_name ]]"
+  when: false
+
+copyright_year:
+  type: str
+  default: "[[ '%Y' | strftime ]]"
+  when: false

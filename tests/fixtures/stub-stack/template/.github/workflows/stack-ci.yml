@@ -1,0 +1,13 @@
+name: Stack
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "no stack jobs"

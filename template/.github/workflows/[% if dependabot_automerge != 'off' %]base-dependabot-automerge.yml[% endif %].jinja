@@ -1,0 +1,30 @@
+# Template-owned: template-base. Queues auto-merge on Dependabot PRs up to [[ dependabot_automerge ]] updates:
+# a code owner's approval then merges the PR as soon as the required checks pass.
+# It never approves: a bot approval must not count as a review (template-base decision 0001).
+name: Dependabot auto-merge
+
+on: pull_request
+
+permissions: {}
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Queue auto-merge
+[% if dependabot_automerge == 'minor' %]
+        if: contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'), steps.meta.outputs.update-type)
+[% else %]
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch'
+[% endif %]
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR" --auto --squash

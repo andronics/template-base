@@ -1,0 +1,11 @@
+.graphify/
+graphify-out/
+.env
+.env.*
+!.env.example
+secrets/
+private/
+*.pem
+*.key
+.claude/settings.local.json
+CLAUDE.local.md
