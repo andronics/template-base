@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.1](https://github.com/andronics/template-base/compare/v2.0.0...v2.0.1) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* template-update installs copier 9.19 or later, as overlays need ([#17](https://github.com/andronics/template-base/issues/17)) ([91e8817](https://github.com/andronics/template-base/commit/91e88176214f5987906d9341a4236fc25fa09063))
+
+
+### 📚 Documentation
+
+* the base_answers migration recopy, question order, detection and re-exports ([#15](https://github.com/andronics/template-base/issues/15)) ([7959574](https://github.com/andronics/template-base/commit/795957487eed2f1174893057240923b4b5d50289))
+
 ## [2.0.0](https://github.com/andronics/template-base/compare/v1.0.0...v2.0.0) (2026-11-02)
 
 
