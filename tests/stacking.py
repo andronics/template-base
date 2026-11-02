@@ -24,8 +24,17 @@ GIT = ("git", "-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "comm
 IGNORE = shutil.ignore_patterns(".git", ".venv", "__pycache__", ".pytest_cache", "graphify-out", ".graphify")
 
 
+def project_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment for a rendered project's commands: this one without the runner's GITHUB_* variables.
+
+    On base's own CI they describe base's run, not the project's: a release-please GITHUB_HEAD_REF
+    would make a project's checks hold it to release strictness.
+    """
+    return {**{k: v for k, v in os.environ.items() if not k.startswith("GITHUB_")}, **(env or {})}
+
+
 def sh(*cmd: str, cwd: Path, env: dict[str, str] | None = None) -> str:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env={**os.environ, **(env or {})})
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=project_env(env))
     assert result.returncode == 0, f"{' '.join(cmd)} failed:\n{result.stdout}\n{result.stderr}"
     return result.stdout
 
@@ -55,7 +64,7 @@ def commit(dst: Path) -> Path:
 
 def checks(project: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["sh", "scripts/checks.sh"], cwd=project, capture_output=True, text=True,
-                          env={**os.environ, **(env or {})})  # fmt: skip
+                          env=project_env(env))  # fmt: skip
 
 
 def sibling(name: str, env: str) -> Path | None:
