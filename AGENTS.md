@@ -22,8 +22,9 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
   folder (`scripts/checks.d/`, `post-update.d/`, `bootstrap.d/`), never by editing a base file.
 - **One owner per file.** A file base writes is never written by an overlay, and the reverse.
 - **Slots** (`stack-ci.yml`, `.agents/stack.md`, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`,
-  `README.md`, `.github/dependabot.yml`) are filled by the one stack overlay. A new slot, or a new entry base
-  needs in one, is a change to `base-contract.py` and a minor release, and every stack overlay must follow it.
+  `README.md`, `.github/dependabot.yml`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/config.yml`)
+  are filled by the one stack overlay. A new slot, or a new entry base needs in one, is a change to
+  `base-contract.py` and a minor release, and every stack overlay must follow it.
 - Every template-owned script and workflow starts with `Template-owned: template-<name>`.
 
 ## Jinja in this template
