@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.2](https://github.com/andronics/template-base/compare/v2.0.1...v2.0.2) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* pin astral-sh/setup-uv v10.3.3 ([#24](https://github.com/andronics/template-base/issues/24)) ([d976760](https://github.com/andronics/template-base/commit/d97676004995695d3694c54b8f7fc487139cf7e2))
+* the Cursor rule points at .agents/stack.md, as CLAUDE.md, GEMINI.md and Copilot do ([#19](https://github.com/andronics/template-base/issues/19)) ([2a47d1e](https://github.com/andronics/template-base/commit/2a47d1eb96d15dc53741be235330ea7cb39113f4))
+
+
+### 📚 Documentation
+
+* bring decision 0001 up to date, and add TODO.md's decided-against list ([#21](https://github.com/andronics/template-base/issues/21)) ([8f362e1](https://github.com/andronics/template-base/commit/8f362e15300c7caefebf9e9ae6cb446508f04167))
+
 ## [2.0.1](https://github.com/andronics/template-base/compare/v2.0.0...v2.0.1) (2026-11-02)
 
 
