@@ -35,10 +35,12 @@ _tasks:
   - command: "sh scripts/bootstrap.sh"
     when: "[[ _copier_operation == 'copy' ]]"
 
+# Copier runs a recopy as a copy and gives the message nothing to tell them apart, so it covers both.
 _message_after_copy: |
-  [[ project_name ]] has its base. Next, its stack overlay (it reads .copier-answers.base.yml):
-
-    uvx copier copy --trust gh:andronics/template-<stack> [[ _copier_conf.dst_path ]]
+  [[ project_name ]] has its base. Next, in [[ _copier_conf.dst_path ]]:
+    A new project: uvx copier copy --trust gh:andronics/template-<stack> [[ _copier_conf.dst_path ]]
+    (its stack overlay, which reads .copier-answers.base.yml).
+    A recopy: run sh scripts/post-update.sh, restore your edits from git diff and commit.
 
 _message_after_update: |
   Next: resolve any <<<<<<< markers, run sh scripts/post-update.sh, review git diff and commit.
