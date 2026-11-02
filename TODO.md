@@ -6,7 +6,6 @@ left gets a line here or an issue.
 
 ## Open
 
-- Pin bumps ([0002](docs/decisions/0002-template-pin-bumps.md)): create the Courier App (contents, pull requests and workflows read and write) and install it on template-base and the four overlays; in each, set the variable `PIN_BUMP_APP_CLIENT_ID` and the secret `PIN_BUMP_APP_PRIVATE_KEY`. Until then `pin-bumps.yml` only prints a notice. Install it on projects too (brain first), with the same variable and secret, so `template-update.yml` opens workflow updates as PRs (issue #36).
 - Renovate for the template repos' own `uv.lock` in the `chore(deps)` group, after pins have run for a few weeks ([0002](docs/decisions/0002-template-pin-bumps.md), open question 5).
 
 ## Decided against (don't re-propose without reading this first)

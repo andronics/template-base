@@ -89,6 +89,16 @@
   minimumReleaseAge: '3 days',
   internalChecksFilter: 'strict',
 
+  // Never write commit statuses: the App has no statuses permission, and a refused
+  // renovate/stability-days status aborts the run after the branch is pushed ("Repository has
+  // changed during renovation"). internalChecksFilter holds the PR until minimumReleaseAge passes.
+  statusCheckWhen: {
+    artifactError: 'never',
+    configValidation: 'never',
+    mergeConfidence: 'never',
+    minimumReleaseAge: 'never',
+  },
+
   // Early Sunday, so a merged fix(deps) can be released before projects' template-update.yml runs
   // on Monday 06:00 UTC. pin-bumps.yml's cron is inside this window.
   schedule: ['before 4am on sunday'],
