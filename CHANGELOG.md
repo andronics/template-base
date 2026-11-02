@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.3](https://github.com/andronics/template-base/compare/v2.0.2...v2.0.3) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* base's copy message is true for a recopy too ([#27](https://github.com/andronics/template-base/issues/27)) ([d6697f2](https://github.com/andronics/template-base/commit/d6697f2e86aa928f78319930ecfafe9589c33af5)), closes [#26](https://github.com/andronics/template-base/issues/26)
+
+
+### 📚 Documentation
+
+* propose automatic pin bumps for template sources ([#29](https://github.com/andronics/template-base/issues/29)) ([d929eee](https://github.com/andronics/template-base/commit/d929eeee7744f10473f1204d5eb7000517c77ebb))
+
 ## [2.0.2](https://github.com/andronics/template-base/compare/v2.0.1...v2.0.2) (2026-11-02)
 
 
