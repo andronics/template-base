@@ -37,18 +37,23 @@ SLOTS = {
 
 # Entries base's rules depend on, in the composite files a tool can't split.
 GITIGNORE = [".env", ".env.*", "secrets/", "*.pem", "*.key", "private/",
-             ".claude/settings.local.json", "CLAUDE.local.md", ".graphify/", "graphify-out/"]  # fmt: skip
+             ".claude/settings.local.json", "CLAUDE.local.md",
+             ".graphify/", "graphify-out/"]  # fmt: skip
 PRE_COMMIT = ["id: gitleaks"]
 ALLOW = ["Bash(gh:*)"]
 DENY = [
     "Edit(.copier-answers.*.yml)",
-    "Bash(git push * main)", "Bash(git push * main *)", "Bash(git push *:main)", "Bash(git push *:main *)",
+    "Bash(git push * main)", "Bash(git push * main *)",
+    "Bash(git push *:main)", "Bash(git push *:main *)",
     "Bash(git push *refs/heads/main)", "Bash(git push *refs/heads/main *)",
-    "Bash(git push *--force*)", "Bash(git push * -f*)", "Bash(git push *+*)", "Bash(git push *--mirror*)",
+    "Bash(git push *--force*)", "Bash(git push * -f*)",
+    "Bash(git push *+*)", "Bash(git push *--mirror*)",
     "Bash(git push *--tags*)", "Bash(git push *--follow-tags*)", "Bash(git tag:*)",
-    "Bash(gh release:*)", "Bash(gh api *releases*)", "Bash(gh repo delete:*)", "Bash(gh repo archive:*)",
+    "Bash(gh release:*)", "Bash(gh api *releases*)",
+    "Bash(gh repo delete:*)", "Bash(gh repo archive:*)",
     "Bash(gh pr create *-R *)", "Bash(gh pr create *--repo*)",
-    "Read(./.graphify/**)", "Read(./graphify-out/**)", "Read(.env)", "Read(.env.*)", "Read(secrets/**)",
+    "Read(./.graphify/**)", "Read(./graphify-out/**)",
+    "Read(.env)", "Read(.env.*)", "Read(secrets/**)",
 ]  # fmt: skip
 HOOK = "scripts/repo-boundary.py"
 
@@ -78,13 +83,18 @@ def owners(root: Path, errors: list[str]) -> dict[str, bool]:
         errors.append("error: .copier-answers.base.yml is missing: apply template-base first")
     if len(stacks) != 1:
         have = ", ".join(f".copier-answers.stack-{s}.yml" for s in stacks) or "none"
-        errors.append(f"error: exactly one stack overlay's answers file (.copier-answers.stack-*.yml) is needed; found: {have}")
+        errors.append(
+            "error: exactly one stack overlay's answers file (.copier-answers.stack-*.yml)"
+            f" is needed; found: {have}"
+        )
     return found
 
 
 def owned_files(root: Path) -> list[Path]:
     paths = [p for p in (root / ".github/workflows").glob("*") if p.is_file()]
-    paths += [p for p in (root / "scripts").rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+    paths += [
+        p for p in (root / "scripts").rglob("*") if p.is_file() and "__pycache__" not in p.parts
+    ]
     return sorted(paths)
 
 
@@ -100,7 +110,10 @@ def check_owners(root: Path, found: dict[str, bool], errors: list[str]) -> None:
             continue  # the project's own file
         owner = match.group(1)
         if owner not in found:
-            errors.append(f"error: {rel}: owned by template-{owner}, which has no answers file (.copier-answers.*{owner}.yml)")
+            errors.append(
+                f"error: {rel}: owned by template-{owner},"
+                f" which has no answers file (.copier-answers.*{owner}.yml)"
+            )
             continue
         if owner == "base" or rel in SLOTS:
             continue
@@ -113,7 +126,9 @@ def check_owners(root: Path, found: dict[str, bool], errors: list[str]) -> None:
         else:
             prefixed = True  # a script: the marker is enough
         if not prefixed:
-            errors.append(f"error: {rel}: template-{owner}'s file must be named {owner}-* (ownership by name)")
+            errors.append(
+                f"error: {rel}: template-{owner}'s file must be named {owner}-* (ownership by name)"
+            )
 
 
 def check_slots(root: Path, errors: list[str]) -> None:
@@ -153,7 +168,10 @@ def check_budget(root: Path, errors: list[str]) -> None:
     for names, limit in BUDGET.items():
         size = sum(len(p.read_text(encoding="utf-8")) for n in names if (p := root / n).is_file())
         if size > limit:
-            errors.append(f"error: {' + '.join(names)}: {size} characters, over the context budget of {limit}: keep rules terse")
+            errors.append(
+                f"error: {' + '.join(names)}: {size} characters,"
+                f" over the context budget of {limit}: keep rules terse"
+            )
 
 
 def main() -> int:
