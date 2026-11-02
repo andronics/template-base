@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.10](https://github.com/andronics/template-base/compare/v2.0.9...v2.0.10) (2026-11-02)
+
+
+### 📚 Documentation
+
+* decision records credit people only ([#46](https://github.com/andronics/template-base/issues/46)) ([e150715](https://github.com/andronics/template-base/commit/e1507150b9170c9f8600e5cfd4ea2c1333f99fbc))
+
 ## [2.0.9](https://github.com/andronics/template-base/compare/v2.0.8...v2.0.9) (2026-11-02)
 
 
