@@ -1,0 +1,62 @@
+# Template-owned: template-base
+# Weekly pin bumps (decision 0002): self-hosted Renovate, with renovate/templates.json5, opens up to two PRs
+# in the repository it runs for: fix(deps) for template sources, chore(deps) for the repository's own pins.
+# Each template repository calls this workflow from its own pin-bumps.yml; template-base runs it directly.
+#
+# The PRs must come from a GitHub App, or their CI never runs: a PR opened with GITHUB_TOKEN starts no
+# workflows. So without the App's variable this does nothing but say so. Needs, in the calling repository:
+#   vars.PIN_BUMP_APP_CLIENT_ID       the App's client ID
+#   secrets.PIN_BUMP_APP_PRIVATE_KEY  its private key (a caller passes it with `secrets: inherit`)
+# The App needs contents, pull requests and workflows (read and write) on the repository.
+name: Pin bumps
+
+on:
+  schedule:
+    - cron: '23 2 * * 0' # Sunday, inside the preset's "before 4am on sunday"
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      PIN_BUMP_APP_PRIVATE_KEY:
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: pin-bumps-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  not-configured:
+    name: Pin bumps (App not configured)
+    if: vars.PIN_BUMP_APP_CLIENT_ID == ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice title=Pin bumps skipped::The pin-bump GitHub App isn't configured for ${GITHUB_REPOSITORY}: set the variable PIN_BUMP_APP_CLIENT_ID and the secret PIN_BUMP_APP_PRIVATE_KEY (decision 0002). GITHUB_TOKEN isn't used: its PRs run no CI."
+
+  renovate:
+    name: Pin bumps
+    if: vars.PIN_BUMP_APP_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.PIN_BUMP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PIN_BUMP_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+      # A manual run means "now": lift the preset's Sunday-morning schedule for it.
+      - if: github.event_name == 'workflow_dispatch'
+        run: echo 'RENOVATE_FORCE={"schedule":["at any time"]}' >> "$GITHUB_ENV"
+      - uses: renovatebot/github-action@43b963bf5dd5e57f1f95c59765a018d782870211 # v46.3.11
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          renovate-version: 44.199.2
+        env:
+          RENOVATE_PLATFORM: github
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_ONBOARDING: 'false'
+          RENOVATE_REQUIRE_CONFIG: required
+          LOG_LEVEL: info

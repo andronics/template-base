@@ -18,8 +18,11 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not docker'"
-markers = ["docker: runs checks through Docker (uv run pytest -m docker)"]
+addopts = "-m 'not docker and not npx'"
+markers = [
+    "docker: runs checks through Docker (uv run pytest -m docker)",
+    "npx: runs Renovate's config validator through npx (uv run pytest -m npx)",
+]
 
 [tool.ruff]
 line-length = 120

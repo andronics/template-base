@@ -1,0 +1,124 @@
+// Template-owned: template-base
+// The shared Renovate preset for every template repository (decision 0002). A repository extends it
+// from its renovate.json:
+//   {"extends": ["local>andronics/template-base//renovate/templates.json5"]}
+// and runs it with .github/workflows/pin-bumps.yml. A rule only one repository needs goes in that
+// repository's renovate.json, never here: this preset names no overlay.
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  description: 'Bump the pins in template sources (fix) and in the repository itself (chore), weekly',
+
+  // Pins only: the template repos' own uv.lock is a follow-up (0002, open question 5), and projects'
+  // ecosystems stay with their Dependabot.
+  enabledManagers: ['github-actions', 'dockerfile', 'custom.regex'],
+
+  // Beside each manager's defaults (the repository's own .github/workflows/ and Dockerfiles), the
+  // template sources it can read. Renovate finds `uses:` lines line by line, so Jinja around them
+  // doesn't stop it (0002's dry run).
+  'github-actions': {
+    managerFilePatterns: ['template/**/.github/workflows/**'],
+  },
+  dockerfile: {
+    managerFilePatterns: ['template/**/*Dockerfile*', 'includes/**/*Dockerfile*'],
+  },
+
+  customManagers: [
+    {
+      description: 'Hand-pinned tool images on Docker Hub: `docker run IMAGE:vX.Y.Z`',
+      customType: 'regex',
+      managerFilePatterns: [
+        'template/**',
+        'includes/**',
+        'tests/**',
+        'scripts/**',
+        '.github/workflows/**',
+        'AGENTS.md',
+      ],
+      matchStrings: [
+        '(?:^|[\\s"\'=(])(?<depName>rhysd/actionlint|hadolint/hadolint|davidanson/markdownlint-cli2):(?<currentValue>v?\\d+\\.\\d+\\.\\d+)\\b',
+      ],
+      datasourceTemplate: 'docker',
+    },
+    {
+      // GHCR gives Renovate no release dates, so minimumReleaseAge would hold these forever: the
+      // versions and their dates come from the project's GitHub releases, whose tags the images share.
+      description: 'Hand-pinned tool images on GHCR: `docker run ghcr.io/OWNER/REPO:vX.Y.Z`, `COPY --from=`',
+      customType: 'regex',
+      managerFilePatterns: [
+        'template/**',
+        'includes/**',
+        'tests/**',
+        'scripts/**',
+        '.github/workflows/**',
+        'AGENTS.md',
+      ],
+      matchStrings: [
+        '(?:^|[\\s"\'=(])ghcr\\.io/(?<packageName>gitleaks/gitleaks|yannh/kubeconform|astral-sh/uv):(?<currentValue>v?\\d+\\.\\d+\\.\\d+)\\b',
+      ],
+      depNameTemplate: 'ghcr.io/{{{packageName}}}',
+      datasourceTemplate: 'github-releases',
+    },
+    {
+      description: 'Release downloads: https://github.com/OWNER/REPO/releases/download/vX.Y.Z/',
+      customType: 'regex',
+      managerFilePatterns: [
+        'template/**',
+        'includes/**',
+        'tests/**',
+        'scripts/**',
+        '.github/workflows/**',
+        'AGENTS.md',
+      ],
+      matchStrings: [
+        'https://github\\.com/(?<depName>[\\w.-]+/[\\w.-]+)/releases/download/(?<currentValue>v?\\d+\\.\\d+\\.\\d+)/',
+      ],
+      datasourceTemplate: 'github-releases',
+    },
+    {
+      // The npm package, not the GHCR image (no release dates, above): both are published together.
+      description: 'Renovate itself: renovate-version in pin-bumps.yml, an action input the rule below skips',
+      customType: 'regex',
+      managerFilePatterns: ['.github/workflows/**'],
+      matchStrings: ['renovate-version: (?<currentValue>\\d+\\.\\d+\\.\\d+)\\b'],
+      depNameTemplate: 'renovate',
+      datasourceTemplate: 'npm',
+    },
+  ],
+
+  // A hijacked release (tj-actions, 2025) is usually caught within this.
+  minimumReleaseAge: '3 days',
+  internalChecksFilter: 'strict',
+
+  // Early Sunday, so a merged fix(deps) can be released before projects' template-update.yml runs
+  // on Monday 06:00 UTC. pin-bumps.yml's cron is inside this window.
+  schedule: ['before 4am on sunday'],
+  automerge: false,
+  dependencyDashboard: false,
+
+  semanticCommits: 'enabled',
+  semanticCommitScope: 'deps',
+  commitMessageAction: 'bump',
+
+  // Two PRs per repository per week, majors included: one review each.
+  separateMajorMinor: false,
+  packageRules: [
+    {
+      description: 'Pin bumps only, not action inputs such as node-version (0002)',
+      matchManagers: ['github-actions'],
+      matchDepTypes: ['uses-with'],
+      enabled: false,
+    },
+    {
+      description: "The repository's own CI, tests and docs: no release",
+      matchFileNames: ['**'],
+      groupName: 'repository pins',
+      semanticCommitType: 'chore',
+    },
+    {
+      description: 'What projects get: a patch release',
+      matchFileNames: ['template/**', 'includes/**'],
+      groupName: 'template pins',
+      semanticCommitType: 'fix',
+    },
+  ],
+}
