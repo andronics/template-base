@@ -12,7 +12,7 @@ AGENTS.md, .agents/stack.md, or a template? Link the issue or PR. "None" is fine
 
 - [ ] None
 - [ ] Assisted: AI suggested parts, a human wrote or rewrote them
-- [ ] Generated: most of this was written by an AI assistant (tool and model: )
+- [ ] Generated: most of this was written by an AI assistant
 
 ## Author checklist
 
