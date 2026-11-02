@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.7](https://github.com/andronics/template-base/compare/v2.0.6...v2.0.7) (2026-11-02)
+
+
+### 📚 Documentation
+
+* pin bumps run in all four overlays ([#39](https://github.com/andronics/template-base/issues/39)) ([39f2078](https://github.com/andronics/template-base/commit/39f2078550f458c5c6818e404c227c409a5f7844))
+
 ## [2.0.6](https://github.com/andronics/template-base/compare/v2.0.5...v2.0.6) (2026-11-02)
 
 
