@@ -76,7 +76,7 @@ jobs:
           before=$(grep '^_commit:' "$ANSWERS")
           # --skip-tasks: Copier runs tasks before it reapplies the project's
           # edits, so a failing task would drop them. post-update.sh runs next.
-          uvx --from 'copier>=9.6,<10' copier update -a "$ANSWERS" --trust --skip-tasks --defaults --conflict inline
+          uvx --from 'copier>=9.19,<10' copier update -a "$ANSWERS" --trust --skip-tasks --defaults --conflict inline
           after=$(grep '^_commit:' "$ANSWERS")
           {
             echo "TEMPLATE=${name}"
