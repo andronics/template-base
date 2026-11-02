@@ -16,11 +16,11 @@ Base always goes first: the overlay reads its answers from `.copier-answers.base
 | Mechanism | What it is |
 |---|---|
 | Answers files | Base writes `.copier-answers.base.yml`; the stack overlay `.copier-answers.stack-<name>.yml`; a feature overlay `.copier-answers.<name>.yml`. Each updates on its own schedule |
-| Slots | Fixed names base expects and the stack overlay fills: `.github/workflows/stack-ci.yml`, `.agents/stack.md`, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`, `README.md`, `.github/dependabot.yml` |
+| Slots | Fixed names base expects and the stack overlay fills: `.github/workflows/stack-ci.yml`, `.agents/stack.md`, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`, `README.md`, `.github/dependabot.yml`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/config.yml` |
 | Drop-ins | `scripts/checks.d/`, `post-update.d/`, `bootstrap.d/`: `scripts/checks.sh` and friends run every file in order |
 | Ownership by name | `base-*` is base's; `<overlay>-*` and `NN-<overlay>*.sh` an overlay's, marked `Template-owned: template-<name>`; anything else the project's |
 | One required check | `base-ci.yml`'s `ci` job gathers the secret scan, `scripts/checks.sh`, actionlint and the stack's `stack-ci.yml` |
-| The contract | `scripts/checks.d/00-base.sh` fails without exactly one stack overlay, a slot, a base entry in a composite file (the gitleaks hook, `private/`, the `gh` allow and the release/repo-delete/repo-archive denies), an owner's answers file, or inside the context budget |
+| The contract | `scripts/checks.d/00-base.sh` fails without exactly one stack overlay, a slot, a base entry in a composite file (the gitleaks hook, `private/`, the PR template's "Template problem found?" item, the issue-form security link, the `gh` allow and the release/repo-delete/repo-archive denies), an owner's answers file, or inside the context budget |
 | Updates | `template-update.yml` updates base, then the stack overlay, then feature overlays by name: one PR per template, then `scripts/post-update.sh` |
 
 The Definition of done in every project is `sh scripts/checks.sh` plus the Docker secret scan.

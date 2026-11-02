@@ -33,6 +33,8 @@ SLOTS = {
     ".pre-commit-config.yaml": "",
     ".claude/settings.json": "",
     "README.md": "",
+    ".github/pull_request_template.md": "Template problem found?",
+    ".github/ISSUE_TEMPLATE/config.yml": "/security/advisories/new",
 }
 
 # Entries base's rules depend on, in the composite files a tool can't split.

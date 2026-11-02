@@ -48,8 +48,10 @@ project-template's `docs/design/`.
   a test enforces. It replaces project-template's `tests/test_layers.py`.
 - **Slots** are fixed names base expects and the one stack overlay fills: `.github/workflows/stack-ci.yml`,
   `.agents/stack.md`, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`, `README.md`,
-  `.github/dependabot.yml`. Dependabot reads one file, and each stack adds its own ecosystem, so
-  `dependabot.yml` is a slot too.
+  `.github/dependabot.yml`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/config.yml`.
+  Dependabot reads one file, and each stack adds its own ecosystem, so `dependabot.yml` is a slot too.
+  GitHub reads one PR template and one issue-form config, and a code stack adds its checklist and its
+  Documentation link (issue #1), so those two are slots as well.
 - **Drop-in folders:** `scripts/checks.d/`, `scripts/post-update.d/`, `scripts/bootstrap.d/`. Base's runners
   (`checks.sh`, `post-update.sh`, `bootstrap.sh`) run every `*.sh` in each folder in name order. An overlay
   changes behaviour by adding a file, never by editing a base file.
@@ -64,7 +66,9 @@ project-template's `docs/design/`.
 `scripts/base-contract.py` (stdlib) fails when any of these holds:
 
 - base's answers file is missing, or there isn't exactly one `.copier-answers.stack-*.yml`;
-- a slot is missing, `stack-ci.yml` isn't `workflow_call`, or `dependabot.yml` lacks `github-actions`;
+- a slot is missing, `stack-ci.yml` isn't `workflow_call`, `dependabot.yml` lacks `github-actions`, the
+  PR template lacks the "Template problem found?" item, or the issue-form config lacks the private
+  security-advisory link;
 - a marked file names a template with no answers file, or an overlay's workflow or drop-in lacks its prefix;
 - a composite file lacks an entry base's rules depend on. In `.gitignore`: `.env`, `secrets/`, `private/`,
   keys, the local Claude files and the graphify caches. In pre-commit: the gitleaks hook. In
@@ -136,6 +140,9 @@ overlays. Today's `kind == 'brain'` exclusions become simple absence.
 - **The context budget in each stack's checker:** two copies of one number, guarding files base owns.
   *Rejected.*
 - **`dependabot.yml` owned by base:** a code overlay couldn't add its ecosystem. *Rejected* for a slot.
+- **The PR template and issue-form config owned by base, the code checklist in `.agents/stack.md`:**
+  reviewers read the PR template, not stack.md, and the Documentation link has nowhere else to go.
+  *Rejected* for two slots (issue #1).
 
 ## Consequences
 
@@ -146,10 +153,10 @@ overlays. Today's `kind == 'brain'` exclusions become simple absence.
   `.gitignore`'s extra lines and `.gitleaks.toml`'s allow-list. Point branch protection at `ci` in the same
   step. A brain's `brain-pull.yml` becomes `obsidian-brain-pull.yml`, so its first run looks back one day
   (it can't find the old workflow's last run): dispatch it with `since` if more time has passed.
-- Files a code overlay can't extend, because base owns them: the Documentation link in
-  `ISSUE_TEMPLATE/config.yml`, the code checklist in the PR template, Copilot's code rules, and the
-  TypeScript section of `.editorconfig`. Revisit them when template-python lands. The likely answer is
-  `.agents/stack.md`, or a `.prettierrc` for TypeScript's indent.
+- Files a code overlay can't extend, because base owns them: Copilot's code rules, and the TypeScript
+  section of `.editorconfig`. Revisit them when template-python lands. The likely answer is
+  `.agents/stack.md`, or a `.prettierrc` for TypeScript's indent. The PR template and
+  `ISSUE_TEMPLATE/config.yml` became slots (issue #1), so every stack overlay must fill them.
 - `.github/repository.toml` is seeded with no homepage or topics.
 
 ## Open questions
