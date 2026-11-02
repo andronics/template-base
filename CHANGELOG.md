@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/andronics/template-base/compare/v2.0.3...v2.0.4) (2026-11-02)
+
+
+### 📚 Documentation
+
+* record the Renovate dry run for 0002 ([#30](https://github.com/andronics/template-base/issues/30)) ([a9055eb](https://github.com/andronics/template-base/commit/a9055eb1b44e4f6bb80509ec3b7811ae60529e6e))
+
 ## [2.0.3](https://github.com/andronics/template-base/compare/v2.0.2...v2.0.3) (2026-11-02)
 
 
