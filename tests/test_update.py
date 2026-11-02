@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 from conftest import BASE, STUB
-from stacking import GIT, ROOT, checks, commit, copy, sh, stage
+from stacking import GIT, ROOT, checks, commit, copy, project_env, sh, stage
 
 EDIT = "A line the project added.\n"
 
@@ -123,7 +123,7 @@ def test_recopy_migrates_a_project_from_before_base_answers(tmp_path: Path) -> N
 
     failed = subprocess.run([sys.executable, "-m", "copier", "update", "-a", ".copier-answers.stack-stub.yml",
                              "--trust", "--skip-tasks", "--defaults", "--conflict", "inline"],
-                            cwd=project, capture_output=True, text=True, check=False)  # fmt: skip
+                            cwd=project, capture_output=True, text=True, check=False, env=project_env())  # fmt: skip
     assert failed.returncode != 0 and "needs template-base first" in failed.stderr, failed.stderr
     sh("git", "reset", "-q", "--hard", cwd=project)
     sh("git", "clean", "-qfd", cwd=project)

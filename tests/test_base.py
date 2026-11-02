@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -23,7 +22,7 @@ from pathlib import Path
 import pytest
 import yaml
 from conftest import BASE
-from stacking import ROOT, checks, commit, copy, sh, sibling, stage
+from stacking import ROOT, checks, commit, copy, project_env, sh, sibling, stage
 
 
 def test_base_names_no_overlay() -> None:
@@ -237,6 +236,17 @@ def test_base_plus_obsidian(base_release: Path, tmp_path: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_projects_run_without_the_runners_github_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Base's own CI env never reaches a rendered project: on its release PR, GITHUB_HEAD_REF made
+    the code overlays' checks run check-wiki.py --strict on a fresh render."""
+    monkeypatch.setenv("GITHUB_HEAD_REF", "release-please--x")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("CI", "true")
+    env = project_env({"UV_LINK_MODE": "symlink"})
+    assert not [k for k in env if k.startswith("GITHUB_")]
+    assert env["CI"] == "true" and env["UV_LINK_MODE"] == "symlink" and "PATH" in env
+
+
 # The code overlays: a stack with these answers, then template-container with its own when they're
 # given. A stack's defaults build an image and name docker and k8s, so they take template-container.
 CODE: dict[str, tuple[str, dict[str, object], dict[str, object] | None]] = {
@@ -253,8 +263,8 @@ DOD = {
     "typescript": [("npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"), ("npm", "run", "lint"),
                    ("npm", "run", "format:check"), ("npm", "run", "typecheck"), ("npm", "test")],
 }  # fmt: skip
-# As in the overlays' own tests: venvs link uv's cache, and check-wiki.py prints no CI annotations.
-CODE_ENV = {"UV_LINK_MODE": "symlink", "GITHUB_ACTIONS": ""}
+# As in the overlays' own tests: venvs link uv's cache.
+CODE_ENV = {"UV_LINK_MODE": "symlink"}
 
 
 @pytest.mark.parametrize("render", list(CODE))
@@ -275,5 +285,5 @@ def test_base_plus_code_overlay(render: str, base_release: Path, tmp_path: Path)
     assert result.stdout.splitlines()[-1] == f"20-{stack} OK", result.stdout
     manifests = [("bash", "scripts/check-manifests.sh")] if (dst / "scripts/check-manifests.sh").is_file() else []
     for cmd in [*DOD[stack], *manifests]:
-        result = subprocess.run(cmd, cwd=dst, capture_output=True, text=True, env={**os.environ, **CODE_ENV})
+        result = subprocess.run(cmd, cwd=dst, capture_output=True, text=True, env=project_env(CODE_ENV))
         assert result.returncode == 0, f"{' '.join(cmd)}:\n{result.stdout}\n{result.stderr}"
