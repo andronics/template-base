@@ -22,16 +22,6 @@ stub_name:
 
 # ------------------------------------------------- base's answers (never asked)
 
-# Base must be applied first. A `copier update` replay has no base answers file, only the
-# recorded base_answers; the real render beside it reads the file, so the check runs there.
-base_check:
-  type: str
-  when: false
-  default: >-
-    [%- if not (_external_data.base or base_answers | default({})) -%]
-    [[ {}['template-stub needs template-base first: .copier-answers.base.yml is missing'].stop ]]
-    [%- else -%]ok[%- endif -%]
-
 # Base's answers, as templates read them (`base_answers.project_name`). `copier update` replays
 # each version in an empty directory, without .copier-answers.base.yml, so they're recorded in
 # this overlay's answers file. ask: false never prompts; the validator rejects a recorded copy
@@ -43,3 +33,13 @@ base_answers:
   validator: >-
     [% if _external_data.base and base_answers != dict(_external_data.base | items
        | rejectattr('0', 'in', ['_commit', '_src_path'])) %]stale: reread .copier-answers.base.yml[% endif %]
+
+# Base must be applied first. A `copier update` replay has no base answers file, only the
+# recorded base_answers; the real render beside it reads the file, so the check runs there.
+base_check:
+  type: str
+  when: false
+  default: >-
+    [%- if not (_external_data.base or base_answers | default({})) -%]
+    [[ {}['template-stub needs template-base first: .copier-answers.base.yml is missing'].stop ]]
+    [%- else -%]ok[%- endif -%]

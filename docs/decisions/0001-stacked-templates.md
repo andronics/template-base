@@ -40,8 +40,8 @@ project-template's `docs/design/`.
   version in empty directories, where `.copier-answers.base.yml` doesn't exist, so `_external_data.base` is
   `{}` there. Overlays rendering from it get blank values and conflicts, or fail their `base_check`. So each
   overlay records base's answers as an answer of its own, `base_answers`, and its templates read only that
-  (`[[ base_answers.project_name ]]`), never `_external_data` directly. Copier 9.19 or later
-  (`_min_copier_version`), as the stub stack overlay (`tests/fixtures/stub-stack/copier.yml`) does it:
+  (`[[ base_answers.project_name ]]`, or a re-export below), never `_external_data` directly. Copier 9.19
+  or later (`_min_copier_version`), as the stub stack overlay (`tests/fixtures/stub-stack/copier.yml`) does it:
 
   ```yaml
   base_answers:
@@ -63,13 +63,38 @@ project-template's `docs/design/`.
   recommended recording the values, as here. *Rejected:* recording a hidden copy from the answers-file
   template (issue #10's first fix): the new version then replays with the old copy, which silently drops
   a changed base answer next to a project edit.
+
+  Three details (issue #14):
+  - **Order:** `base_answers` comes before the questions that read it, `base_check` included. Copier 9.19.1
+    doesn't need that: each question renders with the replay's data and the answers file already in its
+    context, and a first copy's `base_check` reads `_external_data.base` (`Worker._ask`). First reads
+    top-down and doesn't rely on it.
+  - **Detecting it:** `base_answers` is `ask: false`, not `when: false`, because Copier leaves a
+    `when: false` answer out of the answers file. A question is asked unless its `when` or its `ask` is
+    false, so a test listing asked questions checks both (`tests/test_base.py`).
+  - **Re-exporting:** an overlay may give base's values their own names as `when: false` questions whose
+    default reads `base_answers` (`default: "[[ base_answers.project_name ]]"`), so its templates keep
+    `[[ project_name ]]`. They are computed on every render and not recorded, so they follow
+    `base_answers`. Not `ask: false`: a recorded copy would keep the old value.
 - **Compatibility:** an overlay computes a hidden value from `_external_data.base._commit`. A missing answers
   file, or a base older than the overlay needs (or untagged), fails the copy or update with that reason.
   Copier runs no validator on a hidden question, so the value raises a Jinja error whose text is the
   message (template-obsidian's `base_check`). A replay has no answers file but does have `base_answers`, so
-  the check passes there; the real render beside it checks the file. An overlay version whose check lacks
-  that exception can't be replayed, so its projects take the first update to a fixed version with
-  `copier recopy` (same flags) and restore their edits from `git diff`.
+  the check passes there; the real render beside it checks the file.
+- **Migration to `base_answers`** (required, every overlay's existing projects; issue #14). `copier update`
+  replays the project's old version with that version's `copier.yml`. Before an overlay's `base_answers`
+  release, its `base_check` has no replay exception, so every update of a project on such a version fails,
+  `template-update.yml`'s included, until the project is recopied once. Locally, from a clean tree, with
+  `template-update.yml`'s flags (`recopy` has `--overwrite` in place of `--conflict`):
+
+  ```sh
+  uvx --from 'copier>=9.19,<10' copier recopy -a .copier-answers.stack-<name>.yml \
+    --trust --skip-tasks --defaults --overwrite
+  sh scripts/post-update.sh
+  ```
+
+  `--overwrite` drops the project's edits to the overlay's files: restore them from `git diff`, and commit
+  in one reviewed PR. `copier update` works from then on (`tests/test_update.py`).
 
 ### Ownership
 

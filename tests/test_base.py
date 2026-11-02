@@ -37,7 +37,7 @@ def test_base_names_no_overlay() -> None:
 
 def test_base_asks_only_identity_questions() -> None:
     questions = {k for k, v in yaml.safe_load((ROOT / "copier.yml").read_text()).items()
-                 if not k.startswith("_") and v.get("when") is not False}  # fmt: skip
+                 if not k.startswith("_") and v.get("when") is not False and v.get("ask") is not False}  # fmt: skip
     assert questions == {"project_name", "description", "github_owner", "code_owners", "copyright_holder",
                          "license", "dependabot_automerge", "personal_data_guard"}  # fmt: skip
 
