@@ -1,8 +1,8 @@
 # AGENTS.md: working on template-base
 
 This repository is a [Copier](https://copier.readthedocs.io/) template: `template/` is rendered into every
-new project, and one **stack overlay** (template-python, template-typescript, template-obsidian or
-template-none) is applied on top of it. These instructions are for changing **the base**. The instructions
+new project, and one **stack overlay** (template-python, template-typescript or template-obsidian) is applied
+on top of it, then any feature overlay (template-container). These instructions are for changing **the base**. The instructions
 projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/decisions/0001-stacked-templates.md`.
 
 ## Layout

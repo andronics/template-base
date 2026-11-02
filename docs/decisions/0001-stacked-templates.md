@@ -31,8 +31,9 @@ project-template's `docs/design/`.
 
 - **Create:** `copier copy` template-base, then one stack overlay. Base always goes first.
 - **Answers files name the role:** base writes `.copier-answers.base.yml`; the stack overlay
-  `.copier-answers.stack-<name>.yml`; a future feature overlay `.copier-answers.<name>.yml`. Agents never edit
-  any of them (`Edit(.copier-answers.*.yml)` deny, AGENTS.md *Never*).
+  `.copier-answers.stack-<name>.yml`; a feature overlay `.copier-answers.<name>.yml` (template-container's
+  `.copier-answers.container.yml`). Agents never edit any of them (`Edit(.copier-answers.*.yml)` deny,
+  AGENTS.md *Never*).
 - **Overlays read base's answers** through `_external_data: {base: .copier-answers.base.yml}` and never
   re-ask base's questions. Base asks only `project_name`, `description`, `github_owner`, `code_owners`,
   `copyright_holder`, `license`, `dependabot_automerge`, `personal_data_guard`.
@@ -168,8 +169,8 @@ Agents may run every `gh` command except releases, `repo delete` and `repo archi
 verified in Claude Code 2.1.289: a headless run with the allow above was denied
 `gh api repos/…/releases/latest`, and ran it without the deny. `gh pr merge` and `gh repo edit` stay allowed.
 The other denies stay: pushes naming `main`, force pushes, tag pushes, `git tag`, and `gh pr create -R`.
-A command pattern can't catch every API route, so a tag ruleset in this repository's settings should
-restrict `v*` tags and releases to the release App. That is set when the repository is created.
+A command pattern can't catch every API route, so the repository's "release tags" ruleset restricts
+creating, updating and deleting `v*` tags to the release App, its only bypass actor.
 
 ### What carries over from project-template's records
 
@@ -184,9 +185,11 @@ restrict `v*` tags and releases to the release App. That is set when the reposit
 | 0011 Agent git permissions | Kept, plus the `gh` rules above |
 | 0013 Repository boundary | The PreToolUse hook `scripts/repo-boundary.py`, the AGENTS.md rule and the change-request issue form |
 
-Left for the code overlays (template-python, template-typescript, template-none), which keep them from
-project-template: 0005 extra ports, 0008 `language: none` (becomes template-none), 0009 TypeScript, 0012 image
-extras, 0014 the web kind, 0017 the integration job, and 0020 config on interpose. 0015 and 0016 (brains) and
+Left for the code overlays (template-python, template-typescript), which keep them from project-template:
+0005 extra ports, 0009 TypeScript, 0012 image extras, 0014 the web kind, 0017 the integration job, and 0020
+config on interpose. 0008 `language: none` was to become a template-none overlay; it isn't built, and base's
+tests fill the slots with a stub (`tests/fixtures/stub-stack/`). The image's build workflows and the docker
+and k8s manifests later moved to template-container (its decision 0001). 0015 and 0016 (brains) and
 0018 and 0019 (Brain pull) are template-obsidian's: its decision 0001.
 
 ### What base renders
@@ -223,15 +226,14 @@ overlays. Today's `kind == 'brain'` exclusions become simple absence.
   `.gitignore`'s extra lines and `.gitleaks.toml`'s allow-list. Point branch protection at `ci` in the same
   step. A brain's `brain-pull.yml` becomes `obsidian-brain-pull.yml`, so its first run looks back one day
   (it can't find the old workflow's last run): dispatch it with `since` if more time has passed.
-- Files a code overlay can't extend, because base owns them: Copilot's code rules, and the TypeScript
-  section of `.editorconfig`. Revisit them when template-python lands. The likely answer is
-  `.agents/stack.md`, or a `.prettierrc` for TypeScript's indent. The PR template and
-  `ISSUE_TEMPLATE/config.yml` became slots (issue #1), so every stack overlay must fill them.
+- Files a code overlay can't extend, because base owns them, and how each was settled: Copilot's
+  instructions point at `.agents/stack.md`'s Definition of done (issue #3, PR #7); template-typescript's
+  `.prettierrc.json` sets the 2-space indent `.editorconfig` no longer has; the PR template and
+  `ISSUE_TEMPLATE/config.yml` became slots (issue #1, PR #8), so every stack overlay must fill them.
 - `.github/repository.toml` is seeded with no homepage or topics.
 
 ## Open questions
 
-- **Feature overlays (Docker, `contrib/`):** not yet. Keep them in the code overlays, gated by
-  `container_image`, until a third language duplicates them.
-- **The tag ruleset:** set it when the repository is created (Stephen's step). Recommendation: restrict
-  `v*` tag creation and releases to the release App.
+- None. Settled since: **feature overlays** (Docker, `contrib/`) were "not yet, until a third language
+  duplicates them"; template-python and template-typescript duplicated them, so template-container is the
+  first feature overlay (its decision 0001). **The tag ruleset** is set: "release tags" (above).
