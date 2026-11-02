@@ -2,7 +2,7 @@
 
 <!-- Add a line for this record to the index in docs/decisions/README.md (CI checks). -->
 
-Status: Proposed
+Status: Accepted (2026-11-02)
 Date: 2026-11-02
 Authors: Stephen Cox; drafted by Claude (Claude Code)
 
@@ -69,29 +69,43 @@ own Template CI already checks: it renders every variant and runs the checks.
 - **`renovate/templates.json5`**, a shared preset every template repository extends:
   - `enabledManagers`: `github-actions`, `dockerfile` and `custom.regex` only. The template repos' own
     `uv.lock` and the projects' ecosystems stay out of scope (open question 5).
-  - `github-actions` and `dockerfile` get extra `managerFilePatterns` for `template/**/*.jinja`,
-    `template/**/*.yml` and `includes/**`, beside their defaults (the repo's own `.github/workflows/`).
+  - `github-actions` gets an extra `managerFilePatterns` entry, `template/**/.github/workflows/**`, and
+    `dockerfile` gets `template/**/*Dockerfile*` and `includes/**/*Dockerfile*`, beside their defaults
+    (the repo's own `.github/workflows/` and Dockerfiles). Narrower than first proposed (every `*.jinja`,
+    `template/**/*.yml`, `includes/**`): the dry run (Findings) showed the same pins and none of the noise.
     Renovate's GitHub Actions extractor finds `uses:` lines line by line, so the Jinja around them doesn't
-    stop it; this is checked first (open question 1), with a custom regex manager for `uses:` lines as the
-    fallback.
+    stop it, and no `uses:` regex fallback is needed.
+  - **Action inputs aren't bumped:** a `packageRules` entry disables `github-actions`' `uses-with`
+    dependencies (`node-version`, `python-version` and the like), which it reads wherever the YAML parses.
+    Those are choices, not pins.
   - **Custom regex managers** for the hand-pinned tools, in any file under `template/`, `includes/`,
     `tests/`, `scripts/`, `.github/workflows/` and `AGENTS.md`: Docker image references with a version tag
-    (`docker` datasource, an allow-list of names: actionlint, gitleaks, hadolint, kubeconform,
-    markdownlint-cli2, uv), and `https://github.com/OWNER/REPO/releases/download/vX.Y.Z/` URLs
-    (`github-releases` datasource).
+    (an allow-list of names: actionlint, gitleaks, hadolint, kubeconform, markdownlint-cli2, uv), and
+    `https://github.com/OWNER/REPO/releases/download/vX.Y.Z/` URLs (`github-releases` datasource). Docker Hub
+    images use the `docker` datasource. GHCR gives Renovate no release dates, so `minimumReleaseAge` would
+    hold a GHCR image forever (seen in the implementation's dry run): gitleaks, kubeconform and uv are read
+    from their GitHub releases instead, whose tags the images share. A GHCR base image in a `FROM` line
+    would need the same treatment in its repository's `renovate.json`.
+  - A fourth regex manager reads `renovate-version:` in `pin-bumps.yml` (an action input, so excluded
+    above) from npm, so Renovate bumps itself; the tests validate the preset with that version.
   - SHA pins keep their `# vX.Y.Z` comment, which Renovate rewrites with the digest.
   - `minimumReleaseAge: "3 days"`: a hijacked release (tj-actions, 2025) is usually caught within that.
   - **Two groups per repository, per week:** files under `template/` and `includes/` →
     `fix(deps): bump template pins` (a patch release; projects get it); everything else →
     `chore(deps): bump repository pins` (no release). One tool pinned in both lands in both, in the same
-    week, at the same version.
+    week, at the same version. Majors stay in the group (`separateMajorMinor: false`), so it's two PRs; a
+    group with one update is titled after it (`fix(deps): bump astral-sh/setup-uv action to v10.3.4`).
   - `schedule: ["before 4am on sunday"]`, so a merged bump can be released before projects'
-    `template-update.yml` runs on Monday 06:00 UTC. No automerge, no dependency dashboard issue.
-- **`.github/workflows/pin-bumps.yml`**, triggered by `schedule` (weekly), `workflow_dispatch` and
-  `workflow_call`. It mints the App token (`actions/create-github-app-token`) and runs
-  `renovatebot/github-action` (SHA-pinned) against the calling repository
-  (`RENOVATE_REPOSITORIES: ${{ github.repository }}`). Without the App it fails with a message, rather
-  than open PRs whose CI can't run. It's a repository workflow, never rendered.
+    `template-update.yml` runs on Monday 06:00 UTC. **No automerge**, no dependency dashboard issue.
+- **`.github/workflows/pin-bumps.yml`**, triggered by `schedule` (Sunday 02:23 UTC), `workflow_dispatch`
+  and `workflow_call`. It mints the App token (`actions/create-github-app-token`, with `contents`,
+  `pull-requests` and `workflows` write) from `vars.PIN_BUMP_APP_CLIENT_ID` and
+  `secrets.PIN_BUMP_APP_PRIVATE_KEY`, and runs `renovatebot/github-action` (SHA-pinned, Renovate at an
+  exact version) against the calling repository (`RENOVATE_REPOSITORIES: ${{ github.repository }}`). A
+  manual run lifts the schedule (`RENOVATE_FORCE`). **Without the App's variable** only a second job runs,
+  which prints a notice that the App isn't configured and succeeds: it never falls back to `GITHUB_TOKEN`,
+  whose PRs run no CI. So the workflow is inert until the App exists. It's a repository workflow, never
+  rendered.
 - **`renovate.json`**: `{"extends": ["local>andronics/template-base//renovate/templates.json5"]}`, so
   template-base's own sources and CI are bumped too.
 
@@ -100,7 +114,8 @@ own Template CI already checks: it renders every variant and runs the checks.
 `renovate.json` (the same `extends`) and a caller, `.github/workflows/pin-bumps.yml`, weekly plus
 `workflow_dispatch`, whose one job `uses: andronics/template-base/.github/workflows/pin-bumps.yml@SHA #
 vX.Y.Z` with `secrets: inherit`; Renovate bumps that pin like any other, so the overlays follow base's
-mechanism a week behind at most. Plus the App's variable and secret. No
+mechanism a week behind at most. Plus the App's variable and secret (`PIN_BUMP_APP_CLIENT_ID`,
+`PIN_BUMP_APP_PRIVATE_KEY`). No
 file under `template/` changes, so no release. A rule only an overlay needs (template-typescript's nginx
 odd-minor rule, say) goes in its own `renovate.json`'s `packageRules`, never in the shared preset, which
 names no overlay.
@@ -175,44 +190,48 @@ project's edit disappears. The window in which a project is ahead is a week, not
   `pyproject.toml.jinja`, that pin is #20's problem again (projects' tag-check runs ahead of the
   template), and template-python's `renovate.json` adds a regex manager for that line (`github-tags`
   datasource). 0002's case against Renovate is about projects and stands.
-- **The App:** the PRs need an App token, or their CI never runs. The caller workflow names the App by
-  its variable and secret, as `release-please.yml` does. Bumping a template repo's own
-  `.github/workflows/` needs the `workflows` permission; bumping `template/` doesn't, since that rule
-  applies only to the repository's own `.github/workflows/`. Which App is open question 2.
+- **The App:** the PRs need an App token, or their CI never runs. The workflow names the App by
+  its variable and secret, as `release-please.yml` does, but has no `GITHUB_TOKEN` fallback. Bumping a
+  template repo's own `.github/workflows/` needs the `workflows` permission; bumping `template/` may not
+  (Findings). The App is Courier (open question 2), not Tagwarden.
 - **Scheduled workflows** stop after 60 days without activity in a public repository. A merged bump
   counts as activity, so this matters only for a repository that merges nothing for two months, as for
   `template-update.yml`: nothing new.
-- **Migration:** one PR in template-base (the preset, `pin-bumps.yml`, `renovate.json`, the AGENTS.md line), then one
-  per overlay. Install the App on all five; set the variable and secret. Close any open hand-bump PRs.
+- **Migration:** one PR in template-base (the preset, `pin-bumps.yml`, `renovate.json`, the AGENTS.md
+  line, the tests), then one per overlay (TODO.md). Create Courier, install it on all five; set the
+  variable and secret in each. Close any open hand-bump PRs.
+- **Tests:** `tests/test_pin_bumps.py` checks the App gating (no variable: only the notice job runs; no
+  `GITHUB_TOKEN` anywhere) and runs `renovate-config-validator --strict` on the preset and `renovate.json`
+  with the version the workflow runs (`-m npx`, which CI's `-m ''` includes). `tests/test_update.py` has
+  the identical-bump case above. actionlint lints `pin-bumps.yml` with the other workflows.
 - **Rollback:** delete the caller workflow in a repository. Nothing was rendered into projects.
-- **TODO.md** gets "Decided against" lines for the render step, the pins data file and the hand bumps,
-  once this is approved.
+- **TODO.md** gets "Decided against" lines for the render step, the pins data file and the hand bumps.
 
-## Open questions
+## Open questions (resolved 2026-11-02)
+
+Stephen accepted every recommendation.
 
 1. **Does Renovate's `github-actions` manager read `.jinja` workflow sources, including the files with
-   `[% if %]` blocks, and rewrite the SHA and its comment?** Recommend: verify with a dry run
-   (`LOG_LEVEL=debug renovate --platform=local`) on template-base and template-obsidian before approval; if
-   it skips a file, use the custom `uses:` regex manager for `template/`, which reads plain text and can't
-   be confused by Jinja.
-2. **Which App opens the PRs?** Tagwarden has no `workflows` permission and is the tag ruleset's only
-   bypass; Courier is planned with `workflows: write`. Recommend Courier, installed on the five template
-   repositories: it brings changes in, so bumps fit its role, and the release App stays narrow. Granting
-   Tagwarden `workflows: write` instead works but widens the one App that may move tags.
-3. **Renovate at all, or a small script?** Recommend Renovate: it already does SHA-plus-comment pins, GHCR,
+   `[% if %]` blocks, and rewrite the SHA and its comment?** Yes (Findings). No `uses:` regex fallback;
+   the two managers are narrowed to the files they can read.
+2. **Which App opens the PRs?** **Courier**, a new App with `workflows: write`, installed on the five
+   template repositories: it brings changes in, so bumps fit its role, and Tagwarden (the release App, the
+   tag ruleset's only bypass) stays narrow. Courier isn't created yet; until it is, `pin-bumps.yml` skips
+   with a notice.
+3. **Renovate at all, or a small script?** **Renovate**: it already does SHA-plus-comment pins, GHCR,
    Docker Hub and GitHub release datasources, grouping, release age and one PR per group, and its config
-   is shared from template-base without naming an overlay. Choose a script only if a second bot is
-   unwanted; it would cover actions and release URLs first and grow from there.
-4. **Should projects' `dependabot.yml` exclude template-owned workflows?** Recommend not now: identical
-   bumps merge cleanly, and excluding them delays security fixes by a template release. Revisit if
+   is shared from template-base without naming an overlay.
+4. **Should projects' `dependabot.yml` exclude template-owned workflows?** **Not now**: identical bumps
+   merge cleanly (now a test), and excluding them delays security fixes by a template release. Revisit if
    `copier update` conflicts on pins after a month of weekly bumps; then the stack slot adds
    `exclude-paths` for `base-*.yml`, `template-update.yml`, `pr-title.yml`, `stack-ci.yml` and its own
    prefix, and a feature overlay's workflows need a contract entry, a minor release.
-5. **Also let Renovate bump the template repos' own `uv.lock` (copier, pytest)?** Recommend yes, in the
-   `chore(deps)` group, as a follow-up once pins have run for a few weeks: today nothing bumps them either,
-   but it's not #20.
-6. **Automerge?** Recommend no: every template change reaches every project, and CODEOWNERS already
-   requires Stephen's review. A weekly grouped PR is one review.
+5. **Also let Renovate bump the template repos' own `uv.lock` (copier, pytest)?** **Yes, later**, in the
+   `chore(deps)` group, as a follow-up once pins have run for a few weeks (TODO.md).
+6. **Automerge?** **No**: every template change reaches every project, and CODEOWNERS already requires
+   Stephen's review. A weekly grouped PR is one review.
+7. **Action inputs (`node-version: '24'` → `'26'`, Findings)?** **Excluded**: a `packageRules` entry
+   disables `depType: uses-with`.
 
 ## Findings (dry run 2026-11-03)
 

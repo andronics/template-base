@@ -149,3 +149,24 @@ def test_recopy_message(tmp_path: Path) -> None:
     lines = recopy.stderr.splitlines()
     assert any(line.strip().startswith("A recopy: run sh scripts/post-update.sh") for line in lines), recopy.stderr
     assert all(line.strip().startswith("A new project:") for line in lines if "copier copy" in line), recopy.stderr
+
+
+def test_a_pin_the_project_bumped_first(tmp_path: Path) -> None:
+    """Dependabot bumps a pin in a template-owned workflow; then base carries the same bump (decision 0002).
+    The update merges the two identical changes: no conflict, and the project's edit is gone."""
+    old = "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3"
+    new = "astral-sh/setup-uv@0123456789abcdef0123456789abcdef01234567 # v10.3.4"
+    base, _, project = stacked(tmp_path)
+    workflow = project / ".github/workflows/base-ci.yml"
+    assert old in workflow.read_text()
+    workflow.write_text(workflow.read_text().replace(old, new))
+    commit(project)
+    release(base, "v1.0.1", "template/.github/workflows/base-ci.yml.jinja", old, new)
+    update(project, ".copier-answers.base.yml")
+    assert answers(project, "base")["_commit"] == "v1.0.1"
+    text = workflow.read_text()
+    assert new in text and old not in text
+    assert_clean(project)
+    fresh = tmp_path / "fresh"
+    copy(base, fresh, BASE, vcs_ref="v1.0.1")
+    assert text == (fresh / ".github/workflows/base-ci.yml").read_text(), "the project's edit should be gone"

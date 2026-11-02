@@ -14,6 +14,7 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 | `template/scripts/base-contract.py` | The stack contract `checks.d/00-base.sh` enforces: slots, owners by name, base entries, budget |
 | `tests/` | Renders base with a stub stack overlay (`tests/fixtures/stub-stack/`) and with each real overlay checked out next to it (skipped if missing); the contract cases |
 | `docs/decisions/` | Design records; `README.md` is the index |
+| `renovate/templates.json5`, `.github/workflows/pin-bumps.yml` | Pin bumps for every template repository (0002): the shared Renovate preset and the reusable workflow. Repository tooling, never rendered |
 
 ## The rules of the split
 
@@ -48,12 +49,13 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 - AI-facing files have a budget (`BUDGET` in `template/scripts/base-contract.py`); the skeleton may use 75% of it
   together with a stack's `.agents/stack.md`. Raising it needs a design record.
 - Pin actions to commit SHAs, with the version in a trailing comment.
+- Pins are bumped by Renovate (decision 0002): don't hand-bump one unless it's urgent.
 - Never credit an AI in commits or PRs. Never create tags or releases: release-please does.
 - Asking the user something? Give your recommendation and why. Reply tersely.
 
 ## Definition of done
 
 ```sh
-uv run pytest -m ''                                             # renders, contract cases, Docker checks
+uv run pytest -m ''                                             # renders, contract cases, Docker and npx checks
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
 ```
