@@ -138,3 +138,14 @@ def test_recopy_migrates_a_project_from_before_base_answers(tmp_path: Path) -> N
     assert answers(project, "stack-stub")["_commit"] == "v1.2.0"
     assert (project / "README.md").read_text().startswith("# demo\n\nA demo project\n")
     assert_clean(project)
+
+
+def test_recopy_message(tmp_path: Path) -> None:
+    """A recopy prints the copy message (issue #26): it must not tell an existing project to copy its overlay."""
+    _, _, project = stacked(tmp_path)
+    recopy = subprocess.run([sys.executable, "-m", "copier", "recopy", "-a", ".copier-answers.base.yml", "--trust",
+                             "--skip-tasks", "--defaults", "--overwrite"],
+                            cwd=project, capture_output=True, text=True, check=True, env=project_env())  # fmt: skip
+    lines = recopy.stderr.splitlines()
+    assert any(line.strip().startswith("A recopy: run sh scripts/post-update.sh") for line in lines), recopy.stderr
+    assert all(line.strip().startswith("A new project:") for line in lines if "copier copy" in line), recopy.stderr
