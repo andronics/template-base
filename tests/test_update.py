@@ -9,6 +9,7 @@ these tests break if a contract change stops it working.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -97,4 +98,43 @@ def test_base_update_then_overlay_update(tmp_path: Path) -> None:
     assert readme.startswith("# demo\n\nA changed description\n"), readme
     assert EDIT in readme
     assert answers(project, "stack-stub")["base_answers"]["description"] == "A changed description"  # type: ignore[index]
+    assert_clean(project)
+
+
+def test_recopy_migrates_a_project_from_before_base_answers(tmp_path: Path) -> None:
+    """Stub v1.0.0 reads _external_data directly: update fails, recopy once, then updates work."""
+    base = stage(ROOT, tmp_path / "template-base")
+    stub = stage(STUB, tmp_path / "template-stub", tag="v1.1.0")
+    sh("git", "switch", "-qc", "before-fix", cwd=stub)
+    config = stub / "copier.yml"
+    old = re.sub(r"\nbase_answers:\n(  .*\n)+", "\n", config.read_text())
+    config.write_text(old.replace("(_external_data.base or base_answers | default({}))", "_external_data.base"))
+    for name in ("README.md.jinja", ".github/ISSUE_TEMPLATE/config.yml.jinja"):
+        file = stub / "template" / name
+        file.write_text(file.read_text().replace("base_answers.", "_external_data.base."))
+    sh(*GIT, "commit", "-qam", "v1.0.0", cwd=stub)
+    sh("git", "tag", "v1.0.0", cwd=stub)
+    sh("git", "switch", "-q", "main", cwd=stub)
+    project = tmp_path / "demo"
+    copy(base, project, BASE)
+    copy(stub, project, {}, vcs_ref="v1.0.0")
+    commit(project)
+    assert "base_answers" not in answers(project, "stack-stub")
+
+    failed = subprocess.run([sys.executable, "-m", "copier", "update", "-a", ".copier-answers.stack-stub.yml",
+                             "--trust", "--skip-tasks", "--defaults", "--conflict", "inline"],
+                            cwd=project, capture_output=True, text=True, check=False)  # fmt: skip
+    assert failed.returncode != 0 and "needs template-base first" in failed.stderr, failed.stderr
+    sh("git", "reset", "-q", "--hard", cwd=project)
+    sh("git", "clean", "-qfd", cwd=project)
+    sh(sys.executable, "-m", "copier", "recopy", "-a", ".copier-answers.stack-stub.yml", "--trust",
+       "--skip-tasks", "--defaults", "--overwrite", cwd=project)  # fmt: skip
+    assert answers(project, "stack-stub")["_commit"] == "v1.1.0"
+    assert answers(project, "stack-stub")["base_answers"]["project_name"] == "demo"  # type: ignore[index]
+    commit(project)
+
+    release(stub, "v1.2.0", "template/scripts/checks.d/20-[[ stub_name ]].sh.jinja", "only check", "one check")
+    update(project, ".copier-answers.stack-stub.yml")
+    assert answers(project, "stack-stub")["_commit"] == "v1.2.0"
+    assert (project / "README.md").read_text().startswith("# demo\n\nA demo project\n")
     assert_clean(project)
