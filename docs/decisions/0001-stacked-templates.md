@@ -159,7 +159,9 @@ project-template's `docs/design/`.
 - `template-update.yml` orders the answers files: base, then the stack overlay, then feature overlays by
   name. It updates each in turn with `--skip-tasks`, runs `scripts/post-update.sh`, and opens **one PR per
   template** (`chore/<template>-update`). Without the release App, a change to workflows opens an issue
-  asking for a local update, as before.
+  asking for a local update, as before. Copier leaves a conflicted file unmerged in the index, which
+  blocks the PR's checkout (issue #33): `scripts/stage-conflicts.sh` stages it with its inline markers,
+  the PR body lists it, and `00-base.sh` fails CI while a `<<<<<<<` or `>>>>>>>` marker is left.
 
 ### Agent permissions
 

@@ -155,6 +155,9 @@ def test_template_update_order(project: Path) -> None:
     steps = "\n".join(json.dumps(s) for s in update["steps"])
     assert "--skip-tasks" in steps and "sh scripts/post-update.sh" in steps
     assert steps.index("copier update -a") < steps.index("sh scripts/post-update.sh")
+    # Unmerged paths block create-pull-request's checkout (issue #33).
+    assert steps.index("sh scripts/post-update.sh") < steps.index("sh scripts/stage-conflicts.sh")
+    assert steps.index("sh scripts/stage-conflicts.sh") < steps.index("create-pull-request")
     pr = next(s for s in update["steps"] if "create-pull-request" in s.get("uses", ""))
     assert pr["with"]["branch"] == "chore/${{ env.TEMPLATE }}-update"
 

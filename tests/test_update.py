@@ -170,3 +170,43 @@ def test_a_pin_the_project_bumped_first(tmp_path: Path) -> None:
     fresh = tmp_path / "fresh"
     copy(base, fresh, BASE, vcs_ref="v1.0.1")
     assert text == (fresh / ".github/workflows/base-ci.yml").read_text(), "the project's edit should be gone"
+
+
+def test_a_conflict_is_staged_for_the_pr(tmp_path: Path) -> None:
+    """The project and base change the same line (issue #33): Copier leaves the file unmerged in git's
+    index, which blocks create-pull-request's checkout. stage-conflicts.sh stages it, markers and all,
+    and names it; the checks then fail until the markers are resolved."""
+    old = "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3"
+    ours = "astral-sh/setup-uv@1111111111111111111111111111111111111111 # v10.3.4"
+    theirs = "astral-sh/setup-uv@2222222222222222222222222222222222222222 # v10.4.0"
+    base, _, project = stacked(tmp_path)
+    path = ".github/workflows/base-ci.yml"
+    workflow = project / path
+    workflow.write_text(workflow.read_text().replace(old, ours))
+    commit(project)
+    release(base, "v1.0.1", f"template/{path}.jinja", old, theirs)
+    update(project, ".copier-answers.base.yml")
+    assert sh("git", "ls-files", "-u", cwd=project), "expected Copier to leave an unmerged entry"
+
+    staged = sh("sh", "scripts/stage-conflicts.sh", cwd=project)
+
+    assert staged.splitlines() == [path]
+    assert sh("git", "ls-files", "-u", cwd=project) == ""
+    sh(*GIT, "checkout", "-qB", "chore/template-base-update", "HEAD", "--", cwd=project)  # as create-pull-request does
+    text = workflow.read_text()
+    assert re.search(r"^<{7} .*\n(.*\n)*.*" + re.escape(ours) + r"(.*\n)*={7}\n(.*\n)*.*" + re.escape(theirs)
+                     + r"(.*\n)*>{7} ", text, re.M), text  # fmt: skip
+    assert sh("sh", "scripts/stage-conflicts.sh", cwd=project) == ""
+    result = checks(commit(project))
+    assert result.returncode != 0 and "unresolved conflict markers" in result.stdout, result.stdout + result.stderr
+    assert path in result.stdout
+
+
+def test_a_clean_update_stages_nothing(tmp_path: Path) -> None:
+    base, _, project = stacked(tmp_path)
+    release(base, "v1.0.1", "template/CLAUDE.md.jinja", "@AGENTS.md", "@AGENTS.md\n")
+    update(project, ".copier-answers.base.yml")
+    status = sh("git", "status", "--porcelain", cwd=project)
+    assert sh("sh", "scripts/stage-conflicts.sh", cwd=project) == ""
+    assert sh("git", "status", "--porcelain", cwd=project) == status
+    assert_clean(project)
