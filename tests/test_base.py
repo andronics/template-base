@@ -14,6 +14,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -199,6 +200,17 @@ def test_edits_stay_in_the_repository(project: Path) -> None:
     cases = {"src/new.txt": 0, str(project / "README.md"): 0, f"{tempfile.gettempdir()}/scratch.txt": 0,
              str(Path.home() / "elsewhere/repo/file.txt"): 2}  # fmt: skip
     assert {p: edit_hook(project, p).returncode for p in cases} == cases
+
+
+def test_scripts_pass_a_stacks_ruff() -> None:
+    """Base's Python scripts pass a code project's ruff at 100 columns (issue #6). None is a .jinja
+    file, so the source is what projects get; a conditional name is matched without its `[% %]`."""
+    scripts = [str(p) for p in (ROOT / "template/scripts").iterdir()
+               if re.sub(r"\[%.*?%\]", "", p.name).endswith(".py")]  # fmt: skip
+    assert len(scripts) >= 4
+    ruff = (sys.executable, "-m", "ruff")
+    sh(*ruff, "check", "--isolated", "--no-cache", "--line-length", "100", "--select", "E501", *scripts, cwd=ROOT)
+    sh(*ruff, "format", "--isolated", "--no-cache", "--check", "--line-length", "100", *scripts, cwd=ROOT)
 
 
 def test_workflows_lint(project: Path) -> None:
