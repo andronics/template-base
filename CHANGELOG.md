@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.9](https://github.com/andronics/template-base/compare/v2.0.8...v2.0.9) (2026-11-02)
+
+
+### 📚 Documentation
+
+* the decision-record template asks for people only as authors ([#44](https://github.com/andronics/template-base/issues/44)) ([75e04f3](https://github.com/andronics/template-base/commit/75e04f3e50cf4c27eaab7fe0dbd12f399aa6a4cb))
+
 ## [2.0.8](https://github.com/andronics/template-base/compare/v2.0.7...v2.0.8) (2026-11-02)
 
 
