@@ -36,10 +36,40 @@ project-template's `docs/design/`.
 - **Overlays read base's answers** through `_external_data: {base: .copier-answers.base.yml}` and never
   re-ask base's questions. Base asks only `project_name`, `description`, `github_owner`, `code_owners`,
   `copyright_holder`, `license`, `dependabot_automerge`, `personal_data_guard`.
+- **Overlays keep a copy of base's answers** (issue #10). `copier update` renders the old and the new
+  version in empty directories, where `.copier-answers.base.yml` doesn't exist, so `_external_data.base` is
+  `{}` there. Overlays rendering from it get blank values and conflicts, or fail their `base_check`. So each
+  overlay records base's answers as an answer of its own, `base_answers`, and its templates read only that
+  (`[[ base_answers.project_name ]]`), never `_external_data` directly. Copier 9.19 or later
+  (`_min_copier_version`), as the stub stack overlay (`tests/fixtures/stub-stack/copier.yml`) does it:
+
+  ```yaml
+  base_answers:
+    type: yaml
+    ask: false   # never prompted
+    default: "[[ dict(_external_data.base | items | rejectattr('0', 'in', ['_commit', '_src_path'])) | tojson ]]"
+    validator: >-
+      [% if _external_data.base and base_answers != dict(_external_data.base | items
+         | rejectattr('0', 'in', ['_commit', '_src_path'])) %]stale: reread .copier-answers.base.yml[% endif %]
+  ```
+
+  Copier writes `base_answers` to the overlay's answers file and passes it to both replays. The old version
+  replays with the copy from its last render. In the real render the validator rejects a copy that differs
+  from base's file, so Copier recomputes it from the file, and the new version replays with that. A changed
+  base answer (`copier update -a .copier-answers.base.yml -d description=…`) so reaches the overlay's files
+  on its next update, as a conflict when the project edited next to it. `tests/test_update.py` updates base
+  and the stub overlay to keep this working. *Rejected:* a native fix. Copier 9.19.1 resolves
+  `_external_data` against the replay's directory, and its maintainers closed the fix (copier#2187) and
+  recommended recording the values, as here. *Rejected:* recording a hidden copy from the answers-file
+  template (issue #10's first fix): the new version then replays with the old copy, which silently drops
+  a changed base answer next to a project edit.
 - **Compatibility:** an overlay computes a hidden value from `_external_data.base._commit`. A missing answers
   file, or a base older than the overlay needs (or untagged), fails the copy or update with that reason.
   Copier runs no validator on a hidden question, so the value raises a Jinja error whose text is the
-  message (template-obsidian's `base_check`).
+  message (template-obsidian's `base_check`). A replay has no answers file but does have `base_answers`, so
+  the check passes there; the real render beside it checks the file. An overlay version whose check lacks
+  that exception can't be replayed, so its projects take the first update to a fixed version with
+  `copier recopy` (same flags) and restore their edits from `git diff`.
 
 ### Ownership
 
