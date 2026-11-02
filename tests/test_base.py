@@ -97,6 +97,7 @@ def test_template_problems_are_reported(project: Path) -> None:
 def test_agents_point_at_the_stack(project: Path) -> None:
     assert "@.agents/stack.md" in (project / "CLAUDE.md").read_text()
     assert "@./.agents/stack.md" in (project / "GEMINI.md").read_text()
+    assert ".agents/stack.md" in (project / ".cursor/rules/project.mdc").read_text()
     assert ".agents/stack.md" in (project / "AGENTS.md").read_text()
     assert "Every other `gh` command is allowed." in (project / "AGENTS.md").read_text()
 
