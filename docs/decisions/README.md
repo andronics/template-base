@@ -8,3 +8,4 @@ are not imported: 0001 rebuilds the ones that still govern base; the originals a
 | # | Title | Status | Decision in one line |
 |---|---|---|---|
 | [0001](0001-stacked-templates.md) | Stacked templates | Approved | A base plus one stack overlay per project: answers files by role, slots, drop-ins, ownership by name, one `ci` check, one update PR per template; carries project-template's 0002–0004, 0006, 0007, 0010, 0011 and 0013 |
+| [0002](0002-template-pin-bumps.md) | Automatic pin bumps for template sources | Proposed | Self-hosted Renovate, from a preset and workflow at template-base's root, bumps action SHAs and tool pins in every template repo's `.jinja` sources and own CI, with no render step; projects keep Dependabot (#20) |
