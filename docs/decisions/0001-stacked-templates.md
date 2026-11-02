@@ -53,6 +53,21 @@ project-template's `docs/design/`.
 - **Drop-in folders:** `scripts/checks.d/`, `scripts/post-update.d/`, `scripts/bootstrap.d/`. Base's runners
   (`checks.sh`, `post-update.sh`, `bootstrap.sh`) run every `*.sh` in each folder in name order. An overlay
   changes behaviour by adding a file, never by editing a base file.
+- **What a drop-in may assume** (issue #4). Anything else it needs, it checks for and names when missing:
+  - `checks.d/` runs in base-ci's `checks` job and locally (the Definition of done); `post-update.d/` in
+    `template-update.yml`'s `update` job and locally after a local `copier update`. Both jobs are
+    `ubuntu-latest` plus `setup-uv`. Such a drop-in may assume `sh`, `python3`, `git` and `uv`, and in CI
+    whatever the runner image has preinstalled (unpinned; Docker among it). A tool that's only on the
+    image, such as Docker, may be missing locally: skip with a message there and fail in CI, as
+    `check-docs-secrets.sh` does. Otherwise a missing tool fails with a message naming it.
+  - `bootstrap.d/` runs only on the developer's machine, as Copier's task on `copier copy` (or by hand), so
+    no runner image applies. It may assume only `sh` and `git`. For anything else it checks first and, when
+    the tool is missing, prints what to install and carries on, as `bootstrap.sh` does for pre-commit,
+    rather than failing the copy.
+  - A stack's own toolchain works within these tools, or in its own `stack-ci.yml` jobs, which can install
+    anything. *Rejected:* base reading an optional, stack-neutral toolchain file (`.nvmrc`, say) and
+    installing it in these jobs: base would still name no overlay, but it would know one stack's file.
+    Revisit if a lock refresh breaks on the runner's Node.
 - **Ownership by name:** `base-*` (and `template-update.yml`, `pr-title.yml`, the runners) are base's;
   `<overlay>-*` workflows and `NN-<overlay>*.sh` drop-ins are an overlay's; anything else is the project's.
   Every template-owned script and workflow carries `Template-owned: template-<name>` near its top. The

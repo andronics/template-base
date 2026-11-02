@@ -1,6 +1,8 @@
 #!/bin/sh
 # Template-owned: template-base. One-off setup after `copier copy` (Copier runs it
 # with --trust). Safe to re-run. Each template adds its steps as scripts/bootstrap.d/*.
+# Local only: a step may assume sh and git. For any other tool it checks first and,
+# when it's missing, prints what to install and carries on, as pre-commit below does.
 set -eu
 cd "$(dirname "$0")/.."
 
