@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.5](https://github.com/andronics/template-base/compare/v2.0.4...v2.0.5) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* open the template-update PR when copier leaves conflicts ([#34](https://github.com/andronics/template-base/issues/34)) ([4ff38cc](https://github.com/andronics/template-base/commit/4ff38cc3ac8aad56836786829f9f23875abe339b))
+
 ## [2.0.4](https://github.com/andronics/template-base/compare/v2.0.3...v2.0.4) (2026-11-02)
 
 
