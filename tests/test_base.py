@@ -222,13 +222,13 @@ def test_workflows_lint(project: Path) -> None:
         pytest.skip("neither actionlint nor docker available")
 
 
-def test_base_plus_obsidian(base_src: Path, tmp_path: Path) -> None:
+def test_base_plus_obsidian(base_release: Path, tmp_path: Path) -> None:
     """Base with the latest template-obsidian (../template-obsidian or $TEMPLATE_OBSIDIAN) passes its checks."""
     obsidian = sibling("template-obsidian", "TEMPLATE_OBSIDIAN")
     if obsidian is None:
         pytest.skip("template-obsidian is not checked out next to this repository")
     dst = tmp_path / "brain"
-    copy(base_src, dst, BASE)
+    copy(base_release, dst, BASE)
     copy(stage(obsidian, tmp_path / "template-obsidian"), dst, {"vault_dir": "knowledge", "brain_pull": True})
     result = checks(commit(dst))
     assert result.returncode == 0, result.stdout + result.stderr

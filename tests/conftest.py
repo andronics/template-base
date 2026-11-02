@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -16,6 +17,13 @@ STUB = ROOT / "tests/fixtures/stub-stack"
 @pytest.fixture(scope="session")
 def base_src(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return stage(ROOT, tmp_path_factory.mktemp("src") / "template-base")
+
+
+@pytest.fixture(scope="session")
+def base_release(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Base tagged with its release version, for the real overlays: they check base's `_commit`."""
+    version = json.loads((ROOT / ".release-please-manifest.json").read_text())["."]
+    return stage(ROOT, tmp_path_factory.mktemp("src") / "template-base", tag=f"v{version}")
 
 
 @pytest.fixture(scope="session")
