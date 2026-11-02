@@ -6,7 +6,7 @@ left gets a line here or an issue.
 
 ## Open
 
-- Pin bumps ([0002](docs/decisions/0002-template-pin-bumps.md)): create the Courier App (contents, pull requests and workflows read and write) and install it on template-base and the four overlays; in each, set the variable `PIN_BUMP_APP_CLIENT_ID` and the secret `PIN_BUMP_APP_PRIVATE_KEY`. Until then `pin-bumps.yml` only prints a notice.
+- Pin bumps ([0002](docs/decisions/0002-template-pin-bumps.md)): create the Courier App (contents, pull requests and workflows read and write) and install it on template-base and the four overlays; in each, set the variable `PIN_BUMP_APP_CLIENT_ID` and the secret `PIN_BUMP_APP_PRIVATE_KEY`. Until then `pin-bumps.yml` only prints a notice. Install it on projects too (brain first), with the same variable and secret, so `template-update.yml` opens workflow updates as PRs (issue #36).
 - Pin bumps in the overlays (template-obsidian, template-python, template-typescript, template-container), once the App exists: a `ci:` PR each with `renovate.json` (`{"extends": ["local>andronics/template-base//renovate/templates.json5"]}`, plus any rule only that repository needs) and `.github/workflows/pin-bumps.yml` (weekly cron on Sunday before 04:00 UTC, `workflow_dispatch`, `permissions: {}`, one job that `uses: andronics/template-base/.github/workflows/pin-bumps.yml@SHA # vX.Y.Z` with `secrets: inherit`), and the AGENTS.md line on pins.
 - Renovate for the template repos' own `uv.lock` in the `chore(deps)` group, after pins have run for a few weeks ([0002](docs/decisions/0002-template-pin-bumps.md), open question 5).
 

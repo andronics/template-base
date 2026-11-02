@@ -194,6 +194,13 @@ project's edit disappears. The window in which a project is ahead is a week, not
   its variable and secret, as `release-please.yml` does, but has no `GITHUB_TOKEN` fallback. Bumping a
   template repo's own `.github/workflows/` needs the `workflows` permission; bumping `template/` may not
   (Findings). The App is Courier (open question 2), not Tagwarden.
+- **Projects' `template-update.yml`** (issue #36) prefers the same App: with `PIN_BUMP_APP_CLIENT_ID` set
+  in a project, it mints Courier's token with `contents`, `pull-requests` and `workflows` write; else the
+  release App's, else `GITHUB_TOKEN`. Neither of those two may push a change to `.github/workflows/`
+  (Tagwarden stays without `workflows`), so with them an update that changes a workflow opens the "run
+  locally" issue instead of a PR, decided from the token before pushing. A push or PR that fails anyway
+  opens the same issue, not a red job. So a project that wants workflow updates as PRs installs Courier and
+  sets its variable and secret.
 - **Scheduled workflows** stop after 60 days without activity in a public repository. A merged bump
   counts as activity, so this matters only for a repository that merges nothing for two months, as for
   `template-update.yml`: nothing new.

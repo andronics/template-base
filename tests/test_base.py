@@ -162,6 +162,88 @@ def test_template_update_order(project: Path) -> None:
     assert pr["with"]["branch"] == "chore/${{ env.TEMPLATE }}-update"
 
 
+TOKEN = "${{ steps.workflows-app.outputs.token || steps.release-app.outputs.token || github.token }}"
+
+
+def update_steps(project: Path) -> list[dict]:
+    return yaml.safe_load((project / ".github/workflows/template-update.yml").read_text())["jobs"]["update"]["steps"]
+
+
+def minted(steps: list[dict], variables: dict[str, str]) -> set[str]:
+    """The App-token steps that run with these repository variables set (`vars.X != ''`, `==`, `&&` only)."""
+    def holds(cond: str) -> bool:
+        terms = re.findall(r"vars\.(\w+) (==|!=) ''", cond)
+        assert terms and len(terms) == cond.count("vars."), cond
+        return all((variables.get(name, "") != "") == (op == "!=") for name, op in terms)
+    return {s["id"] for s in steps if "create-github-app-token" in s.get("uses", "") and holds(s["if"])}
+
+
+def pusher(steps: list[dict], ran: set[str]) -> str:
+    """Evaluate the PUSHER expression: `steps.X.outcome == 'success' && 'x' || ... || 'fallback'`."""
+    step = next(s for s in steps if s.get("name") == "Can the token push this update?")
+    expr = step["env"]["PUSHER"]
+    for sid, value in re.findall(r"steps\.([\w-]+)\.outcome == 'success' && '([\w-]+)'", expr):
+        if sid in ran:
+            return value
+    return re.search(r"\|\| '([\w-]+)' }}$", expr).group(1)
+
+
+def test_template_update_token_order(project: Path) -> None:
+    """The pin-bump App (with workflows) first, else the release App, else GITHUB_TOKEN (issue #36)."""
+    steps = update_steps(project)
+    apps = {s["id"]: s for s in steps if "create-github-app-token" in s.get("uses", "")}
+    assert list(apps) == ["workflows-app", "release-app"]
+    assert apps["workflows-app"]["with"]["client-id"] == "${{ vars.PIN_BUMP_APP_CLIENT_ID }}"
+    assert {k: v for k, v in apps["workflows-app"]["with"].items() if k.startswith("permission-")} == {
+        "permission-contents": "write", "permission-pull-requests": "write", "permission-workflows": "write"}
+    assert apps["release-app"]["with"]["client-id"] == "${{ vars.RELEASE_APP_CLIENT_ID }}"
+    # Every token the job pushes or reads templates with is the same preference chain.
+    tokens = [v for s in steps for k, v in {**s.get("with", {}), **s.get("env", {})}.items() if k.lower() == "token"]
+    assert len(tokens) == 3 and set(tokens) == {TOKEN}
+    both = {"PIN_BUMP_APP_CLIENT_ID": "1", "RELEASE_APP_CLIENT_ID": "2"}
+    cases = [(both, {"workflows-app"}, "workflows-app"),
+             ({"PIN_BUMP_APP_CLIENT_ID": "1"}, {"workflows-app"}, "workflows-app"),
+             ({"RELEASE_APP_CLIENT_ID": "2"}, {"release-app"}, "release-app"),
+             ({}, set(), "github-token")]  # fmt: skip
+    for variables, apps_run, who in cases:
+        assert minted(steps, variables) == apps_run, variables
+        assert pusher(steps, apps_run) == who, variables
+
+
+def run_push_check(project: Path, tmp_path: Path, who: str, touch: str) -> dict[str, str]:
+    """Run the 'Can the token push' step in a copy of the project with one file changed; return what it set."""
+    step = next(s for s in update_steps(project) if s.get("name") == "Can the token push this update?")
+    dst = tmp_path / f"{who}-{touch.replace('/', '_')}"
+    shutil.copytree(project, dst)
+    (dst / touch).parent.mkdir(parents=True, exist_ok=True)
+    (dst / touch).write_text("changed\n")
+    env_file = tmp_path / f"{dst.name}.env"
+    env_file.write_text("")
+    subprocess.run(["bash", "-e", "-c", step["run"]], cwd=dst, check=True, capture_output=True,
+                   env=project_env({"PUSHER": who, "GITHUB_ENV": str(env_file)}))  # fmt: skip
+    return dict(line.split("=", 1) for line in env_file.read_text().splitlines())
+
+
+def test_template_update_routes_workflow_changes(project: Path, tmp_path: Path) -> None:
+    """A workflow change goes to the 'run locally' issue unless the token is the App with workflows (issue #36)."""
+    workflow, other = ".github/workflows/template-update.yml", "scripts/new.sh"
+    for who in ("release-app", "github-token"):
+        found = run_push_check(project, tmp_path, who, workflow)
+        assert found.get("NEEDS_LOCAL") == "1" and ".github/workflows/" in found["WHY_LOCAL"], who
+        assert run_push_check(project, tmp_path, who, ".github/workflows/new.yml").get("NEEDS_LOCAL") == "1", who
+        assert run_push_check(project, tmp_path, who, other) == {}, who
+    assert run_push_check(project, tmp_path, "workflows-app", workflow) == {}
+    steps = update_steps(project)
+    pr = next(s for s in steps if s.get("id") == "pr")
+    assert pr["if"] == "env.NEEDS_LOCAL != '1'" and pr["continue-on-error"] is True
+    # A refused push all the same leads to the same issue, not a red job.
+    issue = next(s for s in steps if s.get("name") == "Ask for a local update")
+    assert issue["if"] == "env.NEEDS_LOCAL == '1' || steps.pr.outcome == 'failure'"
+    assert steps.index(pr) < steps.index(issue) and "gh issue create" in issue["run"]
+    names = [s.get("name") for s in steps]
+    assert names.index("scripts/stage-conflicts.sh") < names.index("Can the token push this update?") < steps.index(pr)
+
+
 def test_bootstrap_runs_on_copy_only() -> None:
     tasks = yaml.safe_load((ROOT / "copier.yml").read_text())["_tasks"]
     assert tasks and all(t.get("when") == "[[ _copier_operation == 'copy' ]]" for t in tasks)
