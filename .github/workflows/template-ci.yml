@@ -1,5 +1,5 @@
-# template-base's own CI: render base with a stub stack overlay and with template-obsidian
-# at its latest, run each one's checks, and the contract cases (tests/).
+# template-base's own CI: render base with a stub stack overlay and with each overlay (obsidian,
+# python, typescript, container) at its latest, run each one's checks, and the contract cases (tests/).
 name: Template CI
 
 on:
@@ -25,15 +25,41 @@ jobs:
         with:
           repository: andronics/template-obsidian
           path: template-obsidian
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: andronics/template-python
+          path: template-python
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: andronics/template-typescript
+          path: template-typescript
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: andronics/template-container
+          path: template-container
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: '3.13'
           enable-cache: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      # The code renders' manifest check needs these in CI (CI=true makes a missing tool an
+      # error): the versions the overlays' own Template CI installs.
+      - name: Install hadolint and kubeconform
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/hadolint" \
+            https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64
+          chmod +x "$HOME/.local/bin/hadolint"
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" kubeconform
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: pytest
         working-directory: template-base
         env:
           CI: "true"
-        run: uv run pytest -v -m ''
+        run: uv run pytest -n auto -v -m ''
 
   workflows:
     name: Workflow lint

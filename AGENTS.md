@@ -12,7 +12,7 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 | `copier.yml` | The identity questions, derived values, `_skip_if_exists` and the bootstrap task |
 | `template/` | Everything rendered into a project. `.jinja` files are rendered; the rest are copied verbatim |
 | `template/scripts/base-contract.py` | The stack contract `checks.d/00-base.sh` enforces: slots, owners by name, base entries, budget |
-| `tests/` | Renders base with a stub stack overlay (`tests/fixtures/stub-stack/`) and with template-obsidian; the contract cases |
+| `tests/` | Renders base with a stub stack overlay (`tests/fixtures/stub-stack/`) and with each real overlay checked out next to it (skipped if missing); the contract cases |
 | `docs/decisions/` | Design records; `README.md` is the index |
 
 ## The rules of the split

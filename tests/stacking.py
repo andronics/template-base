@@ -53,8 +53,9 @@ def commit(dst: Path) -> Path:
     return dst
 
 
-def checks(project: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["sh", "scripts/checks.sh"], cwd=project, capture_output=True, text=True)
+def checks(project: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["sh", "scripts/checks.sh"], cwd=project, capture_output=True, text=True,
+                          env={**os.environ, **(env or {})})  # fmt: skip
 
 
 def sibling(name: str, env: str) -> Path | None:
