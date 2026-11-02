@@ -39,7 +39,7 @@ def test_base_names_no_overlay() -> None:
 def test_base_asks_only_identity_questions() -> None:
     questions = {k for k, v in yaml.safe_load((ROOT / "copier.yml").read_text()).items()
                  if not k.startswith("_") and v.get("when") is not False and v.get("ask") is not False}  # fmt: skip
-    assert questions == {"project_name", "description", "github_owner", "code_owners", "copyright_holder",
+    assert questions == {"project_name", "description", "github_owner", "owner_is_org", "code_owners", "copyright_holder",
                          "license", "dependabot_automerge", "personal_data_guard"}  # fmt: skip
 
 
@@ -110,6 +110,16 @@ def test_ci_has_one_required_check(project: Path) -> None:
     assert jobs["ci"]["name"] == "ci" and jobs["ci"]["if"] == "always()"
     assert set(jobs["ci"]["needs"]) == set(jobs) - {"ci", "metadata"}
     assert "sh scripts/checks.sh" in json.dumps(jobs["checks"])
+
+
+@pytest.mark.parametrize(("owner", "is_org", "owners"), [("metalayerlab", True, "@metalayerlab/maintainers"),
+                                                          ("andronics", False, "@andronics")])  # fmt: skip
+def test_code_owners_default(base_src: Path, tmp_path: Path, owner: str, is_org: bool, owners: str) -> None:
+    """An organisation's CODEOWNERS names its maintainers team; a personal account has no teams (0003)."""
+    copy(base_src, tmp_path, {**BASE, "github_owner": owner, "owner_is_org": is_org})
+    rules = [line.split() for line in (tmp_path / ".github/CODEOWNERS").read_text().splitlines()
+             if line and not line.startswith("#")]  # fmt: skip
+    assert rules == [["*", owners], ["/.github/workflows/", owners]]
 
 
 def test_dependabot_automerge_is_opt_in(base_src: Path, tmp_path: Path) -> None:
