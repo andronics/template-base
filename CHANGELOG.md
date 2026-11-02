@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/andronics/template-base/compare/v2.0.5...v2.0.6) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* push template updates with the App that has the workflows permission ([#37](https://github.com/andronics/template-base/issues/37)) ([5b80006](https://github.com/andronics/template-base/commit/5b80006a966d669d2bb36498f848dca6c784f004))
+
 ## [2.0.5](https://github.com/andronics/template-base/compare/v2.0.4...v2.0.5) (2026-11-02)
 
 
