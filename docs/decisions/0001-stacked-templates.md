@@ -35,8 +35,8 @@ project-template's `docs/design/`.
   `.copier-answers.container.yml`). Agents never edit any of them (`Edit(.copier-answers.*.yml)` deny,
   AGENTS.md *Never*).
 - **Overlays read base's answers** through `_external_data: {base: .copier-answers.base.yml}` and never
-  re-ask base's questions. Base asks only `project_name`, `description`, `github_owner`, `code_owners`,
-  `copyright_holder`, `license`, `dependabot_automerge`, `personal_data_guard`.
+  re-ask base's questions. Base asks only `project_name`, `description`, `github_owner`, `owner_is_org`
+  (0003), `code_owners`, `copyright_holder`, `license`, `dependabot_automerge`, `personal_data_guard`.
 - **Overlays keep a copy of base's answers** (issue #10). `copier update` renders the old and the new
   version in empty directories, where `.copier-answers.base.yml` doesn't exist, so `_external_data.base` is
   `{}` there. Overlays rendering from it get blank values and conflicts, or fail their `base_check`. So each
