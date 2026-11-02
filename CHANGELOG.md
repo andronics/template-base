@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.8](https://github.com/andronics/template-base/compare/v2.0.7...v2.0.8) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* a personal account's CODEOWNERS names the owner, not a team ([#42](https://github.com/andronics/template-base/issues/42)) ([a84e665](https://github.com/andronics/template-base/commit/a84e6653083113bc1affefa672bd1ab2d05ef22a))
+
 ## [2.0.7](https://github.com/andronics/template-base/compare/v2.0.6...v2.0.7) (2026-11-02)
 
 
