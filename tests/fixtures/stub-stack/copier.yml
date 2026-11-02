@@ -1,5 +1,7 @@
 # A minimal stack overlay for template-base's own tests: it fills every slot and adds one
-# drop-in, and nothing else. A real overlay (template-obsidian, say) has the same shape.
+# drop-in, and nothing else. A real overlay (template-obsidian, say) has the same shape,
+# including how it reads base's answers (decision 0001, "Overlays read base's answers").
+_min_copier_version: "9.19.0"
 _subdirectory: template
 _templates_suffix: .jinja
 _answers_file: .copier-answers.stack-[[ stub_name ]].yml
@@ -17,3 +19,27 @@ _envops:
 stub_name:
   type: str
   default: stub
+
+# ------------------------------------------------- base's answers (never asked)
+
+# Base must be applied first. A `copier update` replay has no base answers file, only the
+# recorded base_answers; the real render beside it reads the file, so the check runs there.
+base_check:
+  type: str
+  when: false
+  default: >-
+    [%- if not (_external_data.base or base_answers | default({})) -%]
+    [[ {}['template-stub needs template-base first: .copier-answers.base.yml is missing'].stop ]]
+    [%- else -%]ok[%- endif -%]
+
+# Base's answers, as templates read them (`base_answers.project_name`). `copier update` replays
+# each version in an empty directory, without .copier-answers.base.yml, so they're recorded in
+# this overlay's answers file. ask: false never prompts; the validator rejects a recorded copy
+# that differs from base's file, so Copier rereads the file and the next replay gets the new one.
+base_answers:
+  type: yaml
+  ask: false
+  default: "[[ dict(_external_data.base | items | rejectattr('0', 'in', ['_commit', '_src_path'])) | tojson ]]"
+  validator: >-
+    [% if _external_data.base and base_answers != dict(_external_data.base | items
+       | rejectattr('0', 'in', ['_commit', '_src_path'])) %]stale: reread .copier-answers.base.yml[% endif %]

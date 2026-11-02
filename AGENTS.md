@@ -21,6 +21,8 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
   (`tests/test_base.py::test_base_names_no_overlay`). An overlay extends base through a slot or a drop-in
   folder (`scripts/checks.d/`, `post-update.d/`, `bootstrap.d/`), never by editing a base file.
 - **One owner per file.** A file base writes is never written by an overlay, and the reverse.
+- **Overlays read base's answers through their own `base_answers` answer**, never `_external_data` directly:
+  `copier update` replays without `.copier-answers.base.yml` (0001, `tests/test_update.py`).
 - **Slots** (`stack-ci.yml`, `.agents/stack.md`, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`,
   `README.md`, `.github/dependabot.yml`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/config.yml`)
   are filled by the one stack overlay. A new slot, or a new entry base needs in one, is a change to
