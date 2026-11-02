@@ -1,16 +1,18 @@
-"""Render template-base with a stub stack overlay, and with template-obsidian, and check the results.
+"""Render template-base with a stub stack overlay, and with each real overlay, and check the results.
 
     uv run pytest                 # every test
     uv run pytest -m docker       # also the secret scan through Docker
 
-Each render is a project as `copier copy` of base and then one stack overlay would create
-it, and it must pass its own Definition of done (`sh scripts/checks.sh`) unchanged.
+Each render is a project as `copier copy` of base and then one stack overlay (and any feature
+overlay) would create it, and it must pass its own Definition of done (`sh scripts/checks.sh`) unchanged.
+The real overlays are sibling checkouts (../template-<name> or $TEMPLATE_<NAME>), skipped when missing.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -97,6 +99,7 @@ def test_template_problems_are_reported(project: Path) -> None:
 def test_agents_point_at_the_stack(project: Path) -> None:
     assert "@.agents/stack.md" in (project / "CLAUDE.md").read_text()
     assert "@./.agents/stack.md" in (project / "GEMINI.md").read_text()
+    assert ".agents/stack.md" in (project / ".cursor/rules/project.mdc").read_text()
     assert ".agents/stack.md" in (project / "AGENTS.md").read_text()
     assert "Every other `gh` command is allowed." in (project / "AGENTS.md").read_text()
 
@@ -233,3 +236,44 @@ def test_base_plus_obsidian(base_release: Path, tmp_path: Path) -> None:
     result = checks(commit(dst))
     assert result.returncode == 0, result.stdout + result.stderr
 
+
+# The code overlays: a stack with these answers, then template-container with its own when they're
+# given. A stack's defaults build an image and name docker and k8s, so they take template-container.
+CODE: dict[str, tuple[str, dict[str, object], dict[str, object] | None]] = {
+    "python": ("python", {}, {}),
+    "python-cli": ("python", {"kind": "cli", "container_image": False}, None),
+    "typescript": ("typescript", {}, {}),
+    "typescript-cli": ("typescript", {"kind": "cli", "container_image": False}, None),
+}  # fmt: skip
+# Each stack's Definition of done after checks.sh, as its stack-ci.yml runs it: its linters read base's files.
+DOD = {
+    "python": [("uv", "sync", "--locked", "--quiet"), ("uv", "run", "ruff", "check"),
+               ("uv", "run", "ruff", "format", "--check"), ("uv", "run", "mypy"),
+               ("uv", "run", "pytest", "-p", "no:cacheprovider")],
+    "typescript": [("npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"), ("npm", "run", "lint"),
+                   ("npm", "run", "format:check"), ("npm", "run", "typecheck"), ("npm", "test")],
+}  # fmt: skip
+# As in the overlays' own tests: venvs link uv's cache, and check-wiki.py prints no CI annotations.
+CODE_ENV = {"UV_LINK_MODE": "symlink", "GITHUB_ACTIONS": ""}
+
+
+@pytest.mark.parametrize("render", list(CODE))
+def test_base_plus_code_overlay(render: str, base_release: Path, tmp_path: Path) -> None:
+    """Base with the latest code overlays passes their checks, manifest check and stack Definition of done."""
+    stack, answers, container = CODE[render]
+    overlays = [(f"template-{stack}", answers), *([("template-container", container)] if container is not None else [])]
+    found = {name: sibling(name, f"TEMPLATE_{name.removeprefix('template-').upper()}") for name, _ in overlays}
+    if missing := [name for name, path in found.items() if path is None]:
+        pytest.skip(f"{', '.join(missing)} not checked out next to this repository")
+    dst = tmp_path / "demo"
+    copy(base_release, dst, BASE)
+    for name, data in overlays:
+        copy(stage(found[name], tmp_path / name), dst, data)  # type: ignore[arg-type]
+    sh("sh", "scripts/bootstrap.sh", cwd=dst, env=CODE_ENV)
+    result = checks(commit(dst), env=CODE_ENV)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.splitlines()[-1] == f"20-{stack} OK", result.stdout
+    manifests = [("bash", "scripts/check-manifests.sh")] if (dst / "scripts/check-manifests.sh").is_file() else []
+    for cmd in [*DOD[stack], *manifests]:
+        result = subprocess.run(cmd, cwd=dst, capture_output=True, text=True, env={**os.environ, **CODE_ENV})
+        assert result.returncode == 0, f"{' '.join(cmd)}:\n{result.stdout}\n{result.stderr}"
