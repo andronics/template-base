@@ -213,3 +213,56 @@ project's edit disappears. The window in which a project is ahead is a week, not
    but it's not #20.
 6. **Automerge?** Recommend no: every template change reaches every project, and CODEOWNERS already
    requires Stephen's review. A weekly grouped PR is one review.
+
+## Findings (dry run 2026-11-03)
+
+Open question 1, checked with Renovate 44.199.2 (`npx`; the `renovate/renovate` image of the same version
+didn't start here), `--platform=local --dry-run=full`, `LOG_LEVEL=debug`, on scratch copies of
+template-base (`d929eee`) and template-obsidian (`8c0cdc6`), plus template-python (`3a21b19`) because
+neither has a Dockerfile source. The config was this record's preset as written: `managerFilePatterns`
+`template/**/*.jinja`, `template/**/*.yml` and `includes/**` on `github-actions` and `dockerfile`, the two
+regex managers, `minimumReleaseAge: "3 days"`, the two groups. Deliberately stale pins: `setup-uv` v10.3.2
+(`07a047e`) in base's `base-ci.yml.jinja` and obsidian's `obsidian-brain-pull.yml` source, `checkout`
+v7.0.0 *inside* base-ci's `[% if personal_data_guard %]` block, `actionlint:1.7.11`, and `uv:0.13.5` in
+python's `builder.Dockerfile.jinja`.
+
+- **`github-actions` reads every `.jinja` workflow source.** Every `uses: owner/repo@SHA # vX.Y.Z` line under
+  `template/` was extracted: 13 in base (4 files), 7 in obsidian, 13 in python (3 files), the same count
+  as a `grep`. That includes the files whose names are `[% if %]` blocks and the lines inside `[% if %]`.
+  Three sources aren't valid YAML (`base-ci.yml.jinja` and `base-dependabot-automerge.yml` for their
+  `[% if %]` lines, python's `stack-ci.yml.jinja`): Renovate logs `Does not match schema: Invalid YAML` at
+  debug and keeps the `uses:` deps, which it finds line by line. It loses only what it reads from parsed
+  YAML (`runs-on`, `container:`, `node-version`-style inputs), and none of those is pinned in those files.
+  `[[ var ]]` in obsidian's file is inside strings, so it parses.
+- **Proposed updates:** `setup-uv` v10.3.2 → v10.3.3 (both repos), `checkout` v7.0.0 → v7.0.1,
+  `actionlint` 1.7.11 → 1.7.12 (regex), `ghcr.io/astral-sh/uv` 0.13.5 → 0.13.6 (dockerfile), all in
+  `renovate/template-pins`. The local platform stops before branches, so the rewrite was checked by passing
+  the logged upgrades to Renovate's own `doAutoReplace`: the SHA and its comment change together,
+  `astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3`, and nothing else in the file.
+- **Regex managers** found every hand pin a `grep` finds: actionlint in workflows, tests and AGENTS.md,
+  gitleaks, markdownlint-cli2, hadolint and kubeconform release URLs, hadolint's image in tests.
+- **Noise, not misses:** `dockerfile` on every `*.jinja` reads Python `from x import y` and `FROM [[ ... ]]`
+  as images (`invalid-value`, skipped); `github-actions` on every `*.jinja` logs schema errors for
+  CODEOWNERS, LICENSE and the like. The `FROM` lines in template-python are `[[ layer.container_base ]]`,
+  derived from the `python_version` answer, so they are no template pin. `ghcr.io/astral-sh/uv` in
+  `COPY --from=` is found by both `dockerfile` and the regex manager; the second is a no-op in the same
+  branch.
+- **Side effect:** in YAML that parses, `github-actions` also bumps action inputs: template-base's own
+  `template-ci.yml` got `node-version: '24'` → `'26'` (a major, so its own branch). The preset should say
+  whether it wants that (a `packageRules` entry on `depType: uses-with`).
+
+**So:** no `uses:` regex fallback is needed. The one change is to narrow the two managers to the files they
+can read, which a re-run confirmed finds the same pins and none of the noise:
+
+```json
+"github-actions": { "managerFilePatterns": ["template/**/.github/workflows/**"] },
+"dockerfile": { "managerFilePatterns": ["template/**/*Dockerfile*", "includes/**/*Dockerfile*"] }
+```
+
+**The `workflows` permission.** GitHub says an App needs it "to access or edit Actions files in the
+`.github/workflows` directory" ([choosing permissions](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)),
+and that "you must store workflow files in the `.github/workflows` directory of your repository"
+([workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)), so
+`template/.github/workflows/` holds no workflow GitHub would run and isn't that directory. The docs don't
+say so for nested paths in as many words; the first `fix(deps)` push by an App without `workflows` settles
+it, and Courier (open question 2) has the permission either way.
