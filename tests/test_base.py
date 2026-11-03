@@ -180,11 +180,19 @@ def update_steps(project: Path) -> list[dict]:
 
 
 def minted(steps: list[dict], variables: dict[str, str]) -> set[str]:
-    """The App-token steps that run with these repository variables set (`vars.X != ''`, `==`, `&&` only)."""
+    """The App-token steps that run with these repository variables set.
+
+    An `if:` is `&&` of terms, each `vars.X == ''`, `vars.X != ''` or `(vars.X != '' || vars.Y != '')`.
+    """
+
+    def term(text: str) -> bool:
+        alts = re.findall(r"vars\.(\w+) (==|!=) ''", text)
+        assert alts and len(alts) == text.count("vars."), text
+        return any((variables.get(name, "") != "") == (op == "!=") for name, op in alts)
+
     def holds(cond: str) -> bool:
-        terms = re.findall(r"vars\.(\w+) (==|!=) ''", cond)
-        assert terms and len(terms) == cond.count("vars."), cond
-        return all((variables.get(name, "") != "") == (op == "!=") for name, op in terms)
+        return all(term(t) for t in cond.split(" && "))
+
     return {s["id"] for s in steps if "create-github-app-token" in s.get("uses", "") and holds(s["if"])}
 
 
@@ -199,20 +207,34 @@ def pusher(steps: list[dict], ran: set[str]) -> str:
 
 
 def test_template_update_token_order(project: Path) -> None:
-    """The pin-bump App (with workflows) first, else the release App, else GITHUB_TOKEN (issue #36)."""
+    """The update role's App (with workflows) first, else the release role's, else GITHUB_TOKEN (#36, 0004).
+
+    The update role reads UPDATE_APP_* and, for one release cycle, the legacy PIN_BUMP_APP_* (TODO.md).
+    """
     steps = update_steps(project)
     apps = {s["id"]: s for s in steps if "create-github-app-token" in s.get("uses", "")}
     assert list(apps) == ["workflows-app", "release-app"]
-    assert apps["workflows-app"]["with"]["client-id"] == "${{ vars.PIN_BUMP_APP_CLIENT_ID }}"
-    assert {k: v for k, v in apps["workflows-app"]["with"].items() if k.startswith("permission-")} == {
-        "permission-contents": "write", "permission-pull-requests": "write", "permission-workflows": "write"}
-    assert apps["release-app"]["with"]["client-id"] == "${{ vars.RELEASE_APP_CLIENT_ID }}"
+    update, release = apps["workflows-app"]["with"], apps["release-app"]["with"]
+    assert update["client-id"] == "${{ vars.UPDATE_APP_CLIENT_ID || vars.PIN_BUMP_APP_CLIENT_ID }}"
+    assert update["private-key"] == ("${{ vars.UPDATE_APP_CLIENT_ID != '' && secrets.UPDATE_APP_PRIVATE_KEY"
+                                     " || secrets.PIN_BUMP_APP_PRIVATE_KEY }}")  # fmt: skip
+    assert release["client-id"] == "${{ vars.RELEASE_APP_CLIENT_ID }}"
+    assert release["private-key"] == "${{ secrets.RELEASE_APP_PRIVATE_KEY }}"
+    # Least privilege (0004): owner and permissions always; the release role never gets workflows (0002).
+    def permissions(given: dict[str, str]) -> set[str]:
+        assert all(v == "write" for k, v in given.items() if k.startswith("permission-"))
+        return {k.removeprefix("permission-") for k in given if k.startswith("permission-")}
+
+    assert permissions(update) == {"contents", "pull-requests", "workflows"}
+    assert permissions(release) == {"contents", "pull-requests"}
+    assert update["owner"] == release["owner"] == "${{ github.repository_owner }}"
     # Every token the job pushes or reads templates with is the same preference chain.
     tokens = [v for s in steps for k, v in {**s.get("with", {}), **s.get("env", {})}.items() if k.lower() == "token"]
     assert len(tokens) == 3 and set(tokens) == {TOKEN}
-    both = {"PIN_BUMP_APP_CLIENT_ID": "1", "RELEASE_APP_CLIENT_ID": "2"}
-    cases = [(both, {"workflows-app"}, "workflows-app"),
-             ({"PIN_BUMP_APP_CLIENT_ID": "1"}, {"workflows-app"}, "workflows-app"),
+    cases = [({"UPDATE_APP_CLIENT_ID": "1", "PIN_BUMP_APP_CLIENT_ID": "0", "RELEASE_APP_CLIENT_ID": "2"},
+              {"workflows-app"}, "workflows-app"),
+             ({"UPDATE_APP_CLIENT_ID": "1"}, {"workflows-app"}, "workflows-app"),
+             ({"PIN_BUMP_APP_CLIENT_ID": "0", "RELEASE_APP_CLIENT_ID": "2"}, {"workflows-app"}, "workflows-app"),
              ({"RELEASE_APP_CLIENT_ID": "2"}, {"release-app"}, "release-app"),
              ({}, set(), "github-token")]  # fmt: skip
     for variables, apps_run, who in cases:
@@ -248,6 +270,7 @@ def test_template_update_routes_workflow_changes(project: Path, tmp_path: Path) 
     assert pr["if"] == "env.NEEDS_LOCAL != '1'" and pr["continue-on-error"] is True
     # A refused push all the same leads to the same issue, not a red job.
     issue = next(s for s in steps if s.get("name") == "Ask for a local update")
+    assert "UPDATE_APP_CLIENT_ID" in issue["run"] and "UPDATE_APP_PRIVATE_KEY" in issue["run"]
     assert issue["if"] == "env.NEEDS_LOCAL == '1' || steps.pr.outcome == 'failure'"
     assert steps.index(pr) < steps.index(issue) and "gh issue create" in issue["run"]
     names = [s.get("name") for s in steps]

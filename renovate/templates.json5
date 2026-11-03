@@ -12,11 +12,12 @@
   // ecosystems stay with their Dependabot.
   enabledManagers: ['github-actions', 'dockerfile', 'custom.regex'],
 
-  // Beside each manager's defaults (the repository's own .github/workflows/ and Dockerfiles), the
-  // template sources it can read. Renovate finds `uses:` lines line by line, so Jinja around them
-  // doesn't stop it (0002's dry run).
+  // Beside each manager's defaults (the repository's own .github/workflows/, action.yml files and
+  // Dockerfiles), the template sources it can read. Renovate finds `uses:` lines line by line, so Jinja
+  // around them doesn't stop it (0002's dry run). includes/github/ holds workflow steps rendered by
+  // import, such as base's App-token step (decision 0004).
   'github-actions': {
-    managerFilePatterns: ['template/**/.github/workflows/**'],
+    managerFilePatterns: ['template/**/.github/workflows/**', 'includes/github/**'],
   },
   dockerfile: {
     managerFilePatterns: ['template/**/*Dockerfile*', 'includes/**/*Dockerfile*'],
