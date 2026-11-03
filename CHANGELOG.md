@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/andronics/template-base/compare/v2.0.10...v2.1.0) (2026-11-03)
+
+
+### ✨ Features
+
+* role-named App secrets and a shared token-mint action ([#48](https://github.com/andronics/template-base/issues/48)) ([d90a148](https://github.com/andronics/template-base/commit/d90a148eee717d9c5761813b3c3e0858a4cdf786))
+
 ## [2.0.10](https://github.com/andronics/template-base/compare/v2.0.9...v2.0.10) (2026-11-02)
 
 
