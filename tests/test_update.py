@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 from conftest import BASE, STUB
 from stacking import GIT, ROOT, checks, commit, copy, project_env, sh, stage
@@ -209,4 +210,75 @@ def test_a_clean_update_stages_nothing(tmp_path: Path) -> None:
     status = sh("git", "status", "--porcelain", cwd=project)
     assert sh("sh", "scripts/stage-conflicts.sh", cwd=project) == ""
     assert sh("git", "status", "--porcelain", cwd=project) == status
+    assert_clean(project)
+
+
+def set_answers(project: Path, name: str, **values: object) -> None:
+    """Rewrite answers in a recorded answers file, a value of None dropping the key, then commit."""
+    path = project / f".copier-answers.{name}.yml"
+    data = answers(project, name)
+    target = data["base_answers"] if name.startswith("stack-") else data
+    for key, value in values.items():
+        if value is None:
+            target.pop(key, None)  # type: ignore[union-attr]
+        else:
+            target[key] = value  # type: ignore[index]
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    commit(project)
+
+
+def pre_0005_base(dst: Path) -> Path:
+    """Base as v1.0.0 with v2.1.0's owner_is_org (default true, no validators), and as it is now at v1.0.1."""
+    base = stage(ROOT, dst, tag="v1.0.1")
+    sh("git", "switch", "-qc", "before-fix", cwd=base)
+    config = base / "copier.yml"
+    old = re.sub(r"(?ms)^owner_is_org:\n.*?^code_owners:\n.*?\n\n",
+                 "owner_is_org:\n  type: bool\n  default: true\n\ncode_owners:\n  type: str\n"
+                 "  default: \"@[[ github_owner ]][% if owner_is_org %]/maintainers[% endif %]\"\n\n",
+                 config.read_text())  # fmt: skip
+    assert "validator" not in old.split("code_owners:")[0].split("owner_is_org:")[1], "owner_is_org not rewritten"
+    config.write_text(old)
+    sh(*GIT, "commit", "-qam", "v1.0.0", cwd=base)
+    sh("git", "tag", "v1.0.0", cwd=base)
+    sh("git", "switch", "-q", "main", cwd=base)
+    return base
+
+
+OWNERS = {"andronics": ("@andronics", False), "metalayerlab": ("@metalayerlab/maintainers", True)}
+
+
+@pytest.mark.parametrize("owner", sorted(OWNERS))
+@pytest.mark.parametrize("recorded", [None, True], ids=["before-0003", "recorded-true"])
+def test_owner_is_org_follows_code_owners_on_update(tmp_path: Path, owner: str, recorded: bool | None) -> None:
+    """A project from before owner_is_org (0003), or one an update gave base's default `true`, as the brain.
+
+    The overlay mirrors base's file as it is, and base records whether code_owners names the owner as
+    a user: a personal account gets `false` on its next base update, and the overlay copies that.
+    """
+    code_owners, is_org = OWNERS[owner]
+    base = pre_0005_base(tmp_path / "template-base")
+    stub = stage(STUB, tmp_path / "template-stub")
+    project = tmp_path / "demo"
+    copy(base, project, {**BASE, "github_owner": owner, "code_owners": code_owners}, vcs_ref="v1.0.0")
+    copy(stub, project, {})
+    commit(project)
+    set_answers(project, "base", owner_is_org=recorded)
+    set_answers(project, "stack-stub", owner_is_org=recorded)
+
+    release(stub, "v1.1.0", "template/scripts/checks.d/20-[[ stub_name ]].sh.jinja", "only check", "one check")
+    update(project, ".copier-answers.stack-stub.yml")
+    mirrored = answers(project, "stack-stub")["base_answers"]
+    assert mirrored == {k: v for k, v in answers(project, "base").items() if not k.startswith("_")}
+    assert mirrored.get("owner_is_org") == recorded  # type: ignore[union-attr]
+    commit(project)
+
+    update(project, ".copier-answers.base.yml")
+    assert answers(project, "base")["_commit"] == "v1.0.1"
+    assert answers(project, "base")["owner_is_org"] is is_org
+    assert answers(project, "base")["code_owners"] == code_owners
+    commit(project)
+
+    release(stub, "v1.2.0", "template/scripts/checks.d/20-[[ stub_name ]].sh.jinja", "one check", "a check")
+    update(project, ".copier-answers.stack-stub.yml")
+    assert answers(project, "stack-stub")["base_answers"]["owner_is_org"] is is_org  # type: ignore[index]
     assert_clean(project)

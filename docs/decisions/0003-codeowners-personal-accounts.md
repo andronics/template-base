@@ -2,7 +2,7 @@
 
 <!-- Add a line for this record to the index in docs/decisions/README.md (CI checks). -->
 
-Status: Implemented
+Status: Implemented (amended by 0005)
 Date: 2026-11-02
 Authors: Stephen Cox
 
@@ -29,5 +29,6 @@ and still wins. Organisations (metalayerlab) render as before.
 ## Consequences
 
 Existing projects keep their recorded `code_owners`; `copier update` records `owner_is_org: true` for them
-and changes nothing. brain already answers `code_owners: '@andronics'`, so it needs no change. A new
-personal-account project answers `owner_is_org: false` once.
+and changes nothing. *Amended by 0005:* it recorded `true` for personal accounts too; an update now
+records `false` when `code_owners` names the owner. brain already answers `code_owners: '@andronics'`, so
+it needs no change. A new personal-account project answers `owner_is_org: false` once.

@@ -54,6 +54,8 @@ project-template's `docs/design/`.
          | rejectattr('0', 'in', ['_commit', '_src_path'])) %]stale: reread .copier-answers.base.yml[% endif %]
   ```
 
+  The copy is base's file as it is: a key base's file lacks is missing from the copy too, never filled
+  from base's defaults, so a wrong value in it comes from base's file (0005).
   Copier writes `base_answers` to the overlay's answers file and passes it to both replays. The old version
   replays with the copy from its last render. In the real render the validator rejects a copy that differs
   from base's file, so Copier recomputes it from the file, and the new version replays with that. A changed
