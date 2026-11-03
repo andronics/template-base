@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/andronics/template-base/compare/v2.2.0...v2.2.1) (2026-11-03)
+
+
+### 📚 Documentation
+
+* **adr:** approve the gitleaks scan scope ([#54](https://github.com/andronics/template-base/issues/54)) ([aef0e6d](https://github.com/andronics/template-base/commit/aef0e6d69a22a4c382043e2d5c086b4ad671844b))
+
 ## [2.2.0](https://github.com/andronics/template-base/compare/v2.1.1...v2.2.0) (2026-11-03)
 
 
