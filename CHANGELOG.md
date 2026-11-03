@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/andronics/template-base/compare/v2.1.0...v2.1.1) (2026-11-03)
+
+
+### 🐛 Bug Fixes
+
+* owner_is_org follows code_owners, so an update no longer records true for a personal account ([#50](https://github.com/andronics/template-base/issues/50)) ([5e8d6c9](https://github.com/andronics/template-base/commit/5e8d6c9cc675211c9280a0d31bfae20adbe1c21b))
+
 ## [2.1.0](https://github.com/andronics/template-base/compare/v2.0.10...v2.1.0) (2026-11-03)
 
 
