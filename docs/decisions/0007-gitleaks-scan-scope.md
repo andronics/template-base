@@ -2,7 +2,7 @@
 
 <!-- Add a line for this record to the index in docs/decisions/README.md (CI checks). -->
 
-Status: Proposed
+Status: Approved (2026-11-03, approved by the brain coordinator for Stephen)
 Date: 2026-11-03
 Authors: Stephen Cox
 
