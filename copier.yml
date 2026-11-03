@@ -27,6 +27,9 @@ _envops:
 # Written once, then the project's: `copier update` never touches them again.
 _skip_if_exists:
   - .github/repository.toml
+  # The project's gitleaks allow-list; it extends the template-owned .gitleaks.base.toml
+  # (decision 0006), so an update can neither conflict with nor drop its entries.
+  - .gitleaks.toml
 
 # git init, scripts/bootstrap.d/*, pre-commit. Needs --trust; without it, run
 # scripts/bootstrap.sh yourself. Only on copy: `copier update` runs tasks before it

@@ -47,6 +47,8 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 - Every change keeps the stub render, every overlay render and the contract tests green: `uv run pytest`.
 - A change to what projects get reaches every project, whatever its stack: a `feat:`/`fix:` PR title, `!` if breaking.
 - Template-owned vs project-owned is decided by `_skip_if_exists`. Never make a file project-owned without saying why.
+  A project-owned file that needs base's part extends a template-owned one, as `.gitleaks.toml` extends
+  `.gitleaks.base.toml` (0006): base's entries go in the template-owned file.
 - AI-facing files have a budget (`BUDGET` in `template/scripts/base-contract.py`); the skeleton may use 75% of it
   together with a stack's `.agents/stack.md`. Raising it needs a design record.
 - Pin actions to commit SHAs, with the version in a trailing comment.

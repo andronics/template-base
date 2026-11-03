@@ -12,6 +12,7 @@ workflow. It fails when:
   - a template-owned file names a template with no answers file, or a workflow or
     drop-in doesn't carry its owner's prefix;
   - a composite file the stack overlay owns lacks an entry base depends on;
+  - the project's .gitleaks.toml doesn't extend base's .gitleaks.base.toml (decision 0006);
   - the files every AI assistant session loads are over their context budget.
 
     python3 scripts/base-contract.py   (scripts/checks.d/00-base.sh runs it)
@@ -22,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 # Fixed names base expects and the stack overlay fills.
@@ -58,6 +60,8 @@ DENY = [
     "Read(.env)", "Read(.env.*)", "Read(secrets/**)",
 ]  # fmt: skip
 HOOK = "scripts/repo-boundary.py"
+# The project's gitleaks allow-list extends base's, for the default rules and base's entries (0006).
+GITLEAKS, GITLEAKS_BASE = ".gitleaks.toml", ".gitleaks.base.toml"
 
 # Characters (~4 per token). AGENTS.md and .agents/stack.md are loaded together, so they
 # share AGENTS.md's budget. Raising one is a change to template-base, never local.
@@ -166,6 +170,20 @@ def check_composites(root: Path, errors: list[str]) -> None:
             errors.append(f"error: .claude/settings.json lacks the {HOOK} PreToolUse hook")
 
 
+def check_gitleaks(root: Path, errors: list[str]) -> None:
+    try:
+        extend = tomllib.loads((root / GITLEAKS).read_text(encoding="utf-8")).get("extend", {})
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        errors.append(f"error: {GITLEAKS}: {e}")
+        return
+    if extend.get("path") != GITLEAKS_BASE:
+        errors.append(
+            f"error: {GITLEAKS} must extend base's rules and allow-list: sh scripts/post-update.sh"
+            f" migrates a file from before template-base decision 0006; otherwise, under [extend],"
+            f' set path = "{GITLEAKS_BASE}" in place of useDefault = true'
+        )
+
+
 def check_budget(root: Path, errors: list[str]) -> None:
     for names, limit in BUDGET.items():
         size = sum(len(p.read_text(encoding="utf-8")) for n in names if (p := root / n).is_file())
@@ -183,6 +201,7 @@ def main() -> int:
     check_slots(root, errors)
     check_owners(root, found, errors)
     check_composites(root, errors)
+    check_gitleaks(root, errors)
     check_budget(root, errors)
     if errors:
         print("\n".join(errors))

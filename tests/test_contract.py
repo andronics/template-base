@@ -87,6 +87,10 @@ BREAKS = {
     "AGENTS.md over budget": (edit("AGENTS.md", "## Never", "x" * 9000 + "\n## Never"), "over the context budget"),
     "stack.md shares the budget": (write(".agents/stack.md", "x" * 7000), "AGENTS.md + .agents/stack.md"),
     "invalid repository.toml": (write(".github/repository.toml", "topics = 3\n"), ""),
+    "gitleaks without base": (edit(".gitleaks.toml", 'path = ".gitleaks.base.toml"', "useDefault = true"),
+                              'path = ".gitleaks.base.toml"'),
+    "no .gitleaks.toml": (remove(".gitleaks.toml"), "error: .gitleaks.toml:"),
+    "invalid .gitleaks.toml": (write(".gitleaks.toml", "[extend\n"), "error: .gitleaks.toml:"),
 }  # fmt: skip
 
 
@@ -104,6 +108,7 @@ def test_contract_fails(case: str, project: Path, tmp_path: Path) -> None:
 ALLOWED = {
     "a project workflow": write(".github/workflows/brain-commit.yml", "name: mine\non: push\njobs: {}\n"),
     "a project drop-in": write("scripts/checks.d/50-mine.sh", "echo mine\n"),
+    "a project gitleaks entry": edit(".gitleaks.toml", "\n# [[allowlists]]", '\n[[allowlists]]\nstopwords = ["x"]\n#'),
     "a feature overlay": lambda p: (
         write(".copier-answers.docker.yml", "_src_path: gh:andronics/template-docker\n")(p),
         write(".github/workflows/docker-build.yml", FEATURE)(p),

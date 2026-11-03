@@ -330,6 +330,25 @@ def test_docs_secrets_with_docker(project: Path) -> None:
     assert sh("scripts/check-docs-secrets.sh", cwd=project).splitlines() == ["check-docs-secrets OK: gitleaks"]
 
 
+@pytest.mark.docker
+def test_docs_secrets_reads_the_projects_allow_list(project: Path, tmp_path: Path) -> None:
+    """.gitleaks.toml extends .gitleaks.base.toml (decision 0006): the default rules, base's
+    lock-file entry and the project's own entries all apply."""
+    dst = tmp_path / "p"
+    shutil.copytree(project, dst)
+    token = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ01234567"[::-1] + "89"
+    (dst / "notes.md").write_text(f'token = "{token}"\n')
+    (dst / "sub").mkdir()
+    (dst / "sub/uv.lock").write_text(f'token = "{token[:-1]}0"\n')
+    commit(dst)
+    failed = subprocess.run(["scripts/check-docs-secrets.sh"], cwd=dst, capture_output=True, text=True, check=False)
+    assert failed.returncode == 1 and "notes.md" in failed.stdout and "uv.lock" not in failed.stdout, failed.stdout
+    with (dst / ".gitleaks.toml").open("a") as f:
+        f.write(f'\n[[allowlists]]\ndescription = "a test token"\nregexes = ["{token}"]\n')
+    commit(dst)
+    assert sh("scripts/check-docs-secrets.sh", cwd=dst).splitlines() == ["check-docs-secrets OK: gitleaks"]
+
+
 def edit_hook(project: Path, file_path: str) -> subprocess.CompletedProcess[str]:
     event = json.dumps({"cwd": str(project), "tool_input": {"file_path": file_path}})
     return subprocess.run(["python3", "scripts/repo-boundary.py"], cwd=project, input=event, capture_output=True,
