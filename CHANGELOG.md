@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/andronics/template-base/compare/v2.1.1...v2.2.0) (2026-11-03)
+
+
+### ✨ Features
+
+* make .gitleaks.toml the project's allow-list, extending template-owned .gitleaks.base.toml ([#52](https://github.com/andronics/template-base/issues/52)) ([7182ba5](https://github.com/andronics/template-base/commit/7182ba5771b10dcf9f686ee9b6c2bac019bb4a26))
+
 ## [2.1.1](https://github.com/andronics/template-base/compare/v2.1.0...v2.1.1) (2026-11-03)
 
 
