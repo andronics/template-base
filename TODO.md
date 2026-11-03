@@ -25,6 +25,8 @@ left gets a line here or an issue.
 - The context budget in each stack's checker: two copies of one number, guarding files base owns ([0001](docs/decisions/0001-stacked-templates.md))
 - `dependabot.yml` owned by base: a code overlay couldn't add its ecosystem; a slot instead ([0001](docs/decisions/0001-stacked-templates.md))
 - Rendering the templates to bump their pins: a rendered line maps back to its `.jinja` source only by search, per variant; Renovate reads the sources directly ([0002](docs/decisions/0002-template-pin-bumps.md))
+- gitleaks over the full history on every PR: an old finding blocks every PR, by authors who can't fix it there ([0007](docs/decisions/0007-gitleaks-scan-scope.md))
+- gitleaks over a PR's commits only, with no full-history scan: a finding in history is never seen again ([0007](docs/decisions/0007-gitleaks-scan-scope.md))
 - Pins in one data file the templates read: hides them from actionlint and every bot, and overlays share no Jinja ([0002](docs/decisions/0002-template-pin-bumps.md))
 - Bumping template pins by hand on release: v10.3.2 sat in five repos while a project was on v10.3.3; Renovate weekly instead ([0002](docs/decisions/0002-template-pin-bumps.md))
 - Actor-keyed App secret names (`COURIER_APP_*`): the actor filling a role differs by owner, so every rendered workflow would need a per-owner answer; role-keyed instead ([0004](docs/decisions/0004-app-token-minting.md))
