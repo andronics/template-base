@@ -322,29 +322,82 @@ def pre_0006_base(dst: Path) -> Path:
     return base
 
 
-def test_gitleaks_entries_survive_the_0006_update(tmp_path: Path) -> None:
-    """The brain added a regex to the template-owned .gitleaks.toml. The update makes the file the
-    project's as it is: nothing is merged or dropped, and the checks say how to finish the move."""
+# The brain's file after post-update.sh: base's lock-file entry goes, its regex stays.
+BRAIN_MIGRATED = """\
+# gitleaks: the default rules, plus allow-listed false positives. Add an entry
+# with a comment saying why, never a blanket path.
+[extend]
+path = ".gitleaks.base.toml"
+
+[allowlist]
+description = "Known non-secrets"
+"""
+
+
+def pre_0006_project(tmp_path: Path, extra: str) -> Path:
+    """A project rendered from base v1.0.0 (one template-owned .gitleaks.toml), `extra` appended to it."""
     base = pre_0006_base(tmp_path / "template-base")
     stub = stage(STUB, tmp_path / "template-stub")
     project = tmp_path / "demo"
     copy(base, project, BASE, vcs_ref="v1.0.0")
     copy(stub, project, {})
     commit(project)
-    gitleaks = project / ".gitleaks.toml"
-    edited = gitleaks.read_text() + BRAIN_REGEX
-    gitleaks.write_text(edited)
+    with (project / ".gitleaks.toml").open("a") as f:
+        f.write(extra)
     commit(project)
+    return project
+
+
+def post_update(project: Path) -> list[str]:
+    return sh("sh", "scripts/post-update.sh", cwd=project).splitlines()
+
+
+def test_gitleaks_entries_survive_the_0006_update(tmp_path: Path) -> None:
+    """The brain added a regex to the template-owned .gitleaks.toml. The update leaves the file as it
+    is; post-update.sh points it at .gitleaks.base.toml and drops the duplicate lock-file entry, keeping
+    the regex and everything else. A second run changes nothing."""
+    project = pre_0006_project(tmp_path, BRAIN_REGEX)
+    gitleaks = project / ".gitleaks.toml"
+    edited = gitleaks.read_text()
 
     update(project, ".copier-answers.base.yml")
     assert answers(project, "base")["_commit"] == "v1.0.1"
-    assert gitleaks.read_text() == edited, "the project's file must be left as it was"
+    assert gitleaks.read_text() == edited, "Copier must leave the project's file as it was"
     assert (project / ".gitleaks.base.toml").read_text() == (ROOT / "template/.gitleaks.base.toml").read_text()
+
+    assert post_update(project) == [
+        "post-update: .gitleaks.toml now extends .gitleaks.base.toml (template-base decision 0006)",
+        "post-update done",
+    ]
+    assert gitleaks.read_text() == BRAIN_MIGRATED + BRAIN_REGEX
+    assert post_update(project) == ["post-update done"]
+    assert gitleaks.read_text() == BRAIN_MIGRATED + BRAIN_REGEX
+    assert_clean(project)
+
+
+def test_gitleaks_unedited_0006_update(tmp_path: Path) -> None:
+    """An allow-list with only base's lock-file entry keeps it: gitleaks rejects an empty allow-list."""
+    project = pre_0006_project(tmp_path, "")
+    update(project, ".copier-answers.base.yml")
+    post_update(project)
+    text = (project / ".gitleaks.toml").read_text()
+    assert text == PRE_0006_GITLEAKS.replace("useDefault = true", 'path = ".gitleaks.base.toml"')
+    assert_clean(project)
+
+
+def test_gitleaks_hand_made_extend_still_fails(tmp_path: Path) -> None:
+    """post-update.sh rewrites only an [extend] table's `useDefault = true` line; anything else
+    is left for a human, and the contract check keeps failing until it extends base."""
+    project = pre_0006_project(tmp_path, "")
+    gitleaks = project / ".gitleaks.toml"
+    hand_made = gitleaks.read_text().replace("[extend]\nuseDefault = true\n", "extend = { useDefault = true }\n")
+    gitleaks.write_text(hand_made)
+    commit(project)
+    update(project, ".copier-answers.base.yml")
+    assert post_update(project) == ["post-update done"]
+    assert gitleaks.read_text() == hand_made
     result = checks(commit(project))
     assert result.returncode != 0 and 'path = ".gitleaks.base.toml"' in result.stdout, result.stdout + result.stderr
-
-    gitleaks.write_text(edited.replace("useDefault = true", 'path = ".gitleaks.base.toml"'))
-    assert_clean(project)
 
 
 def test_gitleaks_project_entries_never_conflict(tmp_path: Path) -> None:

@@ -178,9 +178,9 @@ def check_gitleaks(root: Path, errors: list[str]) -> None:
         return
     if extend.get("path") != GITLEAKS_BASE:
         errors.append(
-            f"error: {GITLEAKS} must extend base's rules and allow-list: under [extend], set"
-            f' path = "{GITLEAKS_BASE}" in place of useDefault = true. Keep your own entries;'
-            f" the lock-files entry is in {GITLEAKS_BASE} now (template-base decision 0006)"
+            f"error: {GITLEAKS} must extend base's rules and allow-list: sh scripts/post-update.sh"
+            f" migrates a file from before template-base decision 0006; otherwise, under [extend],"
+            f' set path = "{GITLEAKS_BASE}" in place of useDefault = true'
         )
 
 
