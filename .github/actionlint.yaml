@@ -1,0 +1,7 @@
+# actionlint 1.7.12 doesn't know the job context's workflow_repository and workflow_sha yet; GitHub documents
+# them (docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context), and pin-bumps.yml
+# needs them to check out the token action at the commit an overlay called it at (decision 0004).
+paths:
+  .github/workflows/pin-bumps.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

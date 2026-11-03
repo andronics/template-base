@@ -4,9 +4,11 @@
 # Each template repository calls this workflow from its own pin-bumps.yml; template-base runs it directly.
 #
 # The PRs must come from a GitHub App, or their CI never runs: a PR opened with GITHUB_TOKEN starts no
-# workflows. So without the App's variable this does nothing but say so. Needs, in the calling repository:
-#   vars.PIN_BUMP_APP_CLIENT_ID       the App's client ID
-#   secrets.PIN_BUMP_APP_PRIVATE_KEY  its private key (a caller passes it with `secrets: inherit`)
+# workflows. The token is the update role's (decision 0004: Courier, or another App filling the role), and
+# its fallback is `required`: without the App this does nothing but say so. Needs, in the calling repository:
+#   vars.UPDATE_APP_CLIENT_ID       the App's client ID
+#   secrets.UPDATE_APP_PRIVATE_KEY  its private key (a caller passes it with `secrets: inherit`)
+# or, for one release cycle, the legacy PIN_BUMP_APP_CLIENT_ID and PIN_BUMP_APP_PRIVATE_KEY (TODO.md).
 # The App needs contents, pull requests and workflows (read and write) on the repository.
 name: Pin bumps
 
@@ -16,7 +18,9 @@ on:
   workflow_dispatch:
   workflow_call:
     secrets:
-      PIN_BUMP_APP_PRIVATE_KEY:
+      UPDATE_APP_PRIVATE_KEY:
+        required: false
+      PIN_BUMP_APP_PRIVATE_KEY: # legacy name, read until it's removed (decision 0004)
         required: false
 
 permissions: {}
@@ -26,31 +30,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  not-configured:
-    name: Pin bumps (App not configured)
-    if: vars.PIN_BUMP_APP_CLIENT_ID == ''
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "::notice title=Pin bumps skipped::The pin-bump GitHub App isn't configured for ${GITHUB_REPOSITORY}: set the variable PIN_BUMP_APP_CLIENT_ID and the secret PIN_BUMP_APP_PRIVATE_KEY (decision 0002). GITHUB_TOKEN isn't used: its PRs run no CI."
-
   renovate:
     name: Pin bumps
-    if: vars.PIN_BUMP_APP_CLIENT_ID != ''
     runs-on: ubuntu-latest
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      # The token action at the commit this workflow runs from: template-base's own, also when an overlay
+      # calls this workflow at a pinned SHA (job.workflow_sha is the called workflow's commit, not the
+      # caller's). template-base is public, so the empty-permission GITHUB_TOKEN can read it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          client-id: ${{ vars.PIN_BUMP_APP_CLIENT_ID }}
-          private-key: ${{ secrets.PIN_BUMP_APP_PRIVATE_KEY }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .template-base
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - id: app-token
+        uses: ./.template-base/.github/actions/app-token
+        with:
+          role: UPDATE
+          client-id: ${{ vars.UPDATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.UPDATE_APP_PRIVATE_KEY }}
+          legacy-client-id: ${{ vars.PIN_BUMP_APP_CLIENT_ID }}
+          legacy-private-key: ${{ secrets.PIN_BUMP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          fallback: required
           permission-contents: write
           permission-pull-requests: write
           permission-workflows: write
       # A manual run means "now": lift the preset's Sunday-morning schedule for it.
-      - if: github.event_name == 'workflow_dispatch'
+      - if: steps.app-token.outputs.source != 'none' && github.event_name == 'workflow_dispatch'
         run: echo 'RENOVATE_FORCE={"schedule":["at any time"]}' >> "$GITHUB_ENV"
-      - uses: renovatebot/github-action@43b963bf5dd5e57f1f95c59765a018d782870211 # v46.3.11
+      - if: steps.app-token.outputs.source != 'none'
+        uses: renovatebot/github-action@43b963bf5dd5e57f1f95c59765a018d782870211 # v46.3.11
         with:
           token: ${{ steps.app-token.outputs.token }}
           renovate-version: 44.199.2

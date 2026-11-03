@@ -6,6 +6,10 @@ Status: Accepted (2026-11-02)
 Date: 2026-11-02
 Authors: Stephen Cox
 
+> **Secret names, since [0004](0004-app-token-minting.md):** `PIN_BUMP_APP_*` below is now the update role's
+> `UPDATE_APP_CLIENT_ID` and `UPDATE_APP_PRIVATE_KEY`; the old names work until template-base's next major.
+> `pin-bumps.yml` mints through `.github/actions/app-token` (`fallback: required`).
+
 ## Context
 
 Issue #20. Every action in a template is pinned to a commit SHA with its version in a trailing comment

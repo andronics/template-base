@@ -158,8 +158,9 @@ project-template's `docs/design/`.
   `pr-title.yml` stays separate, outside required checks, because it reruns on title edits.
 - `template-update.yml` orders the answers files: base, then the stack overlay, then feature overlays by
   name. It updates each in turn with `--skip-tasks`, runs `scripts/post-update.sh`, and opens **one PR per
-  template** (`chore/<template>-update`). Its token is the pin-bump App's (decision 0002, with the
-  `workflows` permission) when `PIN_BUMP_APP_CLIENT_ID` is set, else the release App's, else
+  template** (`chore/<template>-update`). Its token is the update role's App (decision 0002, with the
+  `workflows` permission) when `UPDATE_APP_CLIENT_ID` is set (or the legacy `PIN_BUMP_APP_CLIENT_ID`,
+  decision 0004), else the release App's, else
   `GITHUB_TOKEN`. Only the first can push a change to `.github/workflows/`: with the others, such a change
   opens an issue asking for a local update, decided before any push, and so does a push or PR that fails
   anyway (issue #36). Copier leaves a conflicted file unmerged in the index, which

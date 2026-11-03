@@ -1,0 +1,211 @@
+# Template-owned: template-base
+# Mint a GitHub App installation token for one actor role (decision 0004), or fall back as the caller
+# declares. It wraps actions/create-github-app-token with what every template workflow wants:
+#   - role-named credentials first (UPDATE_APP_*, RELEASE_APP_*, BRAIN_PULL_APP_*), then the legacy names
+#     (PIN_BUMP_APP_*, SCOUT_APP_*) for one release cycle (TODO.md);
+#   - `owner:` always set, and only the permissions the caller lists (at least one is required);
+#   - an explicit fallback: `required` (no token, a notice, `source` none: the caller skips its work) or
+#     `github-token` (GITHUB_TOKEN, whose PRs run no CI and which can't push .github/workflows/).
+#
+# How to call it:
+#   - template-base's own workflows: `uses: ./.github/actions/app-token` after a checkout of template-base
+#     (pin-bumps.yml checks out the commit it was called at, since an overlay calls it).
+#   - Any other repository (the overlays' rendered workflows, later): `uses:
+#     andronics/template-base/.github/actions/app-token@<SHA> # vX.Y.Z`, a released commit (release-please
+#     tags it after merge), bumped by Renovate in template repos and Dependabot in projects. The repository
+#     is public, so any repository may call it.
+#   - base's own rendered workflows don't call it: they render the same steps from
+#     includes/github/app-token.yml.jinja (decision 0004 says why).
+#
+# Composite actions can't read `secrets` or `vars`: the caller passes both pairs, e.g.
+#   client-id: ${{ vars.UPDATE_APP_CLIENT_ID }}
+#   private-key: ${{ secrets.UPDATE_APP_PRIVATE_KEY }}
+#   legacy-client-id: ${{ vars.PIN_BUMP_APP_CLIENT_ID }}
+#   legacy-private-key: ${{ secrets.PIN_BUMP_APP_PRIVATE_KEY }}
+name: App token
+description: Mint a least-privilege GitHub App token for an actor role, with a declared fallback
+
+inputs:
+  role:
+    description: "The role's secret prefix, for messages only: UPDATE, RELEASE or BRAIN_PULL"
+    required: true
+  client-id:
+    description: "The role's App client ID (vars.<ROLE>_APP_CLIENT_ID)"
+    required: false
+    default: ''
+  private-key:
+    description: "The role's App private key (secrets.<ROLE>_APP_PRIVATE_KEY)"
+    required: false
+    default: ''
+  legacy-client-id:
+    description: "The legacy name's client ID, read only when the role's pair is unset (removed after one release cycle)"
+    required: false
+    default: ''
+  legacy-private-key:
+    description: "The legacy name's private key, read only when the role's pair is unset"
+    required: false
+    default: ''
+  owner:
+    description: The installation's owner
+    required: false
+    default: ${{ github.repository_owner }}
+  repositories:
+    description: >-
+      Comma-separated repository names under `owner`. Empty: the current repository only. `*`: every repository
+      the installation can see (to read a private template, say)
+    required: false
+    default: ''
+  fallback:
+    description: "`required` (no App: no token, a notice, source none) or `github-token` (GITHUB_TOKEN)"
+    required: true
+  # The repository permissions create-github-app-token takes, passed through: 'read' or 'write', empty to
+  # leave out. Add another here when an actor needs it.
+  permission-actions: {description: Actions, required: false, default: ''}
+  permission-administration: {description: Administration, required: false, default: ''}
+  permission-checks: {description: Checks, required: false, default: ''}
+  permission-contents: {description: Contents, required: false, default: ''}
+  permission-deployments: {description: Deployments, required: false, default: ''}
+  permission-discussions: {description: Discussions, required: false, default: ''}
+  permission-environments: {description: Environments, required: false, default: ''}
+  permission-issues: {description: Issues, required: false, default: ''}
+  permission-metadata: {description: Metadata, required: false, default: ''}
+  permission-packages: {description: Packages, required: false, default: ''}
+  permission-pages: {description: Pages, required: false, default: ''}
+  permission-pull-requests: {description: Pull requests, required: false, default: ''}
+  permission-statuses: {description: Commit statuses, required: false, default: ''}
+  permission-workflows: {description: "Workflows (only `write` is meaningful)", required: false, default: ''}
+
+outputs:
+  token:
+    description: The token, or empty when `fallback` is `required` and no App is configured
+    value: ${{ steps.result.outputs.token }}
+  source:
+    description: "Where the token came from: app, legacy-app, github-token or none"
+    value: ${{ steps.result.outputs.source }}
+  can-push-workflows:
+    description: "'true' only for an App token minted with workflows: write"
+    value: ${{ steps.result.outputs.can-push-workflows }}
+
+runs:
+  using: composite
+  steps:
+    # Which pair, and the scope: no secret goes through a step output or a log.
+    - id: pick
+      shell: bash
+      env:
+        ROLE: ${{ inputs.role }}
+        FALLBACK: ${{ inputs.fallback }}
+        HAS_ID: ${{ inputs.client-id != '' }}
+        HAS_KEY: ${{ inputs.private-key != '' }}
+        HAS_LEGACY_ID: ${{ inputs.legacy-client-id != '' }}
+        HAS_LEGACY_KEY: ${{ inputs.legacy-private-key != '' }}
+        OWNER: ${{ inputs.owner }}
+        REPOSITORIES: ${{ inputs.repositories }}
+        PERMISSIONS: >-
+          ${{ inputs.permission-actions }} ${{ inputs.permission-administration }} ${{ inputs.permission-checks }}
+          ${{ inputs.permission-contents }} ${{ inputs.permission-deployments }} ${{ inputs.permission-discussions }}
+          ${{ inputs.permission-environments }} ${{ inputs.permission-issues }} ${{ inputs.permission-metadata }}
+          ${{ inputs.permission-packages }} ${{ inputs.permission-pages }} ${{ inputs.permission-pull-requests }}
+          ${{ inputs.permission-statuses }} ${{ inputs.permission-workflows }}
+      run: |
+        case "$FALLBACK" in
+          required|github-token) ;;
+          *) echo "::error::app-token: fallback must be 'required' or 'github-token', not '${FALLBACK}'"; exit 1 ;;
+        esac
+        if [ -z "${PERMISSIONS// /}" ]; then
+          echo "::error::app-token: list the permissions the ${ROLE} role needs (permission-*): an App token is never minted with all of the App's"
+          exit 1
+        fi
+        if [ -z "$OWNER" ]; then echo "::error::app-token: owner is empty"; exit 1; fi
+        if [ "$HAS_ID" = true ] && [ "$HAS_KEY" = true ]; then pair=app
+        elif [ "$HAS_LEGACY_ID" = true ] && [ "$HAS_LEGACY_KEY" = true ]; then pair=legacy-app
+        else pair=none; fi
+        if [ "$HAS_ID" != "$HAS_KEY" ]; then
+          echo "::warning::app-token: only half of ${ROLE}_APP_CLIENT_ID / ${ROLE}_APP_PRIVATE_KEY is set, so it isn't used"
+        fi
+        if [ "$pair" = legacy-app ]; then
+          echo "::warning::app-token: the ${ROLE} role is using its legacy secret names; rename them to ${ROLE}_APP_CLIENT_ID and ${ROLE}_APP_PRIVATE_KEY (decision 0004)"
+        fi
+        case "$REPOSITORIES" in
+          '') repos=${GITHUB_REPOSITORY#*/}
+              if [ "$OWNER" != "$GITHUB_REPOSITORY_OWNER" ]; then
+                echo "::error::app-token: owner ${OWNER} isn't this repository's: name the repositories"; exit 1
+              fi ;;
+          '*') repos='' ;;
+          *) repos=$REPOSITORIES ;;
+        esac
+        { echo "pair=${pair}"; echo "repositories=${repos}"; } >> "$GITHUB_OUTPUT"
+
+    - id: app
+      if: steps.pick.outputs.pair == 'app'
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.client-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: ${{ inputs.owner }}
+        repositories: ${{ steps.pick.outputs.repositories }}
+        permission-actions: ${{ inputs.permission-actions }}
+        permission-administration: ${{ inputs.permission-administration }}
+        permission-checks: ${{ inputs.permission-checks }}
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-deployments: ${{ inputs.permission-deployments }}
+        permission-discussions: ${{ inputs.permission-discussions }}
+        permission-environments: ${{ inputs.permission-environments }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-metadata: ${{ inputs.permission-metadata }}
+        permission-packages: ${{ inputs.permission-packages }}
+        permission-pages: ${{ inputs.permission-pages }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-statuses: ${{ inputs.permission-statuses }}
+        permission-workflows: ${{ inputs.permission-workflows }}
+
+    - id: legacy
+      if: steps.pick.outputs.pair == 'legacy-app'
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.legacy-client-id }}
+        private-key: ${{ inputs.legacy-private-key }}
+        owner: ${{ inputs.owner }}
+        repositories: ${{ steps.pick.outputs.repositories }}
+        permission-actions: ${{ inputs.permission-actions }}
+        permission-administration: ${{ inputs.permission-administration }}
+        permission-checks: ${{ inputs.permission-checks }}
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-deployments: ${{ inputs.permission-deployments }}
+        permission-discussions: ${{ inputs.permission-discussions }}
+        permission-environments: ${{ inputs.permission-environments }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-metadata: ${{ inputs.permission-metadata }}
+        permission-packages: ${{ inputs.permission-packages }}
+        permission-pages: ${{ inputs.permission-pages }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-statuses: ${{ inputs.permission-statuses }}
+        permission-workflows: ${{ inputs.permission-workflows }}
+
+    # A failed mint fails the step above, and so the job: a configured App that can't mint is an error,
+    # never a quiet fallback.
+    - id: result
+      shell: bash
+      env:
+        ROLE: ${{ inputs.role }}
+        PAIR: ${{ steps.pick.outputs.pair }}
+        FALLBACK: ${{ inputs.fallback }}
+        WORKFLOWS: ${{ inputs.permission-workflows }}
+        TOKEN: ${{ steps.app.outputs.token || steps.legacy.outputs.token || (inputs.fallback == 'github-token' && github.token) || '' }}
+      run: |
+        source=$PAIR
+        if [ "$PAIR" = none ]; then
+          if [ "$FALLBACK" = github-token ]; then
+            source=github-token
+            echo "::notice::app-token: no App for the ${ROLE} role (${ROLE}_APP_CLIENT_ID and ${ROLE}_APP_PRIVATE_KEY): using GITHUB_TOKEN, whose PRs run no CI"
+          else
+            echo "::notice::app-token: no App for the ${ROLE} role: set the variable ${ROLE}_APP_CLIENT_ID and the secret ${ROLE}_APP_PRIVATE_KEY (decision 0004). GITHUB_TOKEN isn't used: this role requires an App"
+          fi
+        fi
+        can=false
+        if [ "$source" != none ] && [ "$source" != github-token ] && [ "$WORKFLOWS" = write ]; then can=true; fi
+        {
+          echo "token=${TOKEN}"
+          echo "source=${source}"
+          echo "can-push-workflows=${can}"
+        } >> "$GITHUB_OUTPUT"

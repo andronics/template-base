@@ -1,0 +1,47 @@
+[#!
+  Template-owned: template-base. The App-token step base's rendered workflows mint with (decision 0004): the
+  same contract as .github/actions/app-token, rendered inline. Not a file of its own in projects: it sits
+  outside template/, and a workflow imports it:
+
+    [% import 'includes/github/app-token.yml.jinja' as app with context %]
+    [[ app.token('workflows-app', 'UPDATE', 'PIN_BUMP', ['contents', 'pull-requests', 'workflows']) ]]
+
+  token(id, role, legacy, permissions, unless=[]):
+    id          the step id: its token is steps.<id>.outputs.token
+    role        the role's secret prefix: vars.<role>_APP_CLIENT_ID, secrets.<role>_APP_PRIVATE_KEY
+    legacy      the legacy prefix read when the role's variable is unset, or none (removed after one release
+                cycle, TODO.md)
+    permissions each one requested `write`; never empty, so a token never gets all of the App's permissions
+    unless      prefixes whose variable, when set, means an earlier step already minted: this one skips
+
+  The scope is `owner:` (this repository's owner) and every repository its installation can see, which
+  template-update needs to read a private template. A workflow that needs less adds a `repositories` input
+  here first.
+
+  Why rendered, not `uses: andronics/template-base/.github/actions/app-token@SHA`: base's own template would
+  then pin template-base itself, and Renovate would bump that pin after every base release, a fix(deps) that
+  cuts the next release: a weekly loop. The fallback (`required` or `github-token`) is the workflow's own
+  `|| github.token`, or its absence.
+!#]
+[% macro token(id, role, legacy, permissions, unless=[]) %]
+[% set gate = ["vars." ~ role ~ "_APP_CLIENT_ID != ''"] + (["vars." ~ legacy ~ "_APP_CLIENT_ID != ''"] if legacy else []) %]
+[% set skip = [] %]
+[% for other in unless %][% set _ = skip.append("vars." ~ other ~ "_APP_CLIENT_ID == ''") %][% endfor %]
+      - id: [[ id ]]
+        if: [[ (skip + [('(' ~ gate | join(' || ') ~ ')') if gate | length > 1 else gate[0]]) | join(' && ') ]]
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+[% if legacy %]
+          # The role's names first, else the legacy ones, as a pair (decision 0004).
+          client-id: ${{ vars.[[ role ]]_APP_CLIENT_ID || vars.[[ legacy ]]_APP_CLIENT_ID }}
+          private-key: ${{ vars.[[ role ]]_APP_CLIENT_ID != '' && secrets.[[ role ]]_APP_PRIVATE_KEY || secrets.[[ legacy ]]_APP_PRIVATE_KEY }}
+[% else %]
+          client-id: ${{ vars.[[ role ]]_APP_CLIENT_ID }}
+          private-key: ${{ secrets.[[ role ]]_APP_PRIVATE_KEY }}
+[% endif %]
+          # The owner's whole installation, so the token can read a private template too.
+          owner: ${{ github.repository_owner }}
+[% for permission in permissions %]
+          permission-[[ permission ]]: write
+[% endfor %]
+[% endmacro %]

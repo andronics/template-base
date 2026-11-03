@@ -15,6 +15,7 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 | `tests/` | Renders base with a stub stack overlay (`tests/fixtures/stub-stack/`) and with each real overlay checked out next to it (skipped if missing); the contract cases |
 | `docs/decisions/` | Design records; `README.md` is the index |
 | `renovate/templates.json5`, `.github/workflows/pin-bumps.yml` | Pin bumps for every template repository (0002): the shared Renovate preset and the reusable workflow. Repository tooling, never rendered |
+| `.github/actions/app-token/`, `includes/github/app-token.yml.jinja` | The App-token mint (0004): the composite action every template repository's workflows call, and the macro base's rendered workflows import instead |
 
 ## The rules of the split
 
