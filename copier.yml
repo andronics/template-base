@@ -68,12 +68,23 @@ github_owner:
 owner_is_org:
   type: bool
   help: Is the GitHub owner an organisation? A personal account has no teams, so its CODEOWNERS default is @owner
-  default: true
+  # Decisions 0003 and 0005. An organisation can't be a code owner, so code_owners naming @owner
+  # means a personal account. code_owners comes later, but an update or `-d code_owners=…` already
+  # has it: a project from before this question records false, not true, and a recorded true it
+  # contradicts fails the validator, so Copier recomputes it. code_owners checks the same pair.
+  default: >-
+    [[ code_owners is not defined or ('@' ~ github_owner | lower) not in (code_owners | lower).split() ]]
+  validator: >-
+    [% if owner_is_org and code_owners is defined and ('@' ~ github_owner | lower) in (code_owners | lower).split()
+    %]code_owners names @[[ github_owner ]], a user: a personal account, not an organisation[% endif %]
 
 code_owners:
   type: str
   help: CODEOWNERS for every path (a team or users; required reviewers)
   default: "@[[ github_owner ]][% if owner_is_org %]/maintainers[% endif %]"
+  validator: >-
+    [% if owner_is_org and ('@' ~ github_owner | lower) in (code_owners | lower).split()
+    %]@[[ github_owner ]] is a user, not an organisation: answer owner_is_org false[% endif %]
 
 dependabot_automerge:
   type: str

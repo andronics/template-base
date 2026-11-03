@@ -122,6 +122,26 @@ def test_code_owners_default(base_src: Path, tmp_path: Path, owner: str, is_org:
     assert rules == [["*", owners], ["/.github/workflows/", owners]]
 
 
+@pytest.mark.parametrize(("owner", "owners", "is_org"), [("andronics", "@andronics", False),
+                                                          ("Andronics", "@andronics @someone", False),
+                                                          ("metalayerlab", "@metalayerlab/maintainers", True),
+                                                          ("metalayerlab", "@alice @bob", True)])  # fmt: skip
+def test_owner_is_org_follows_a_given_code_owners(base_src: Path, tmp_path: Path, owner: str, owners: str,
+                                                  is_org: bool) -> None:  # fmt: skip
+    """`-d code_owners=@owner` means a personal account: an organisation can't be a code owner (0005)."""
+    copy(base_src, tmp_path, {**BASE, "github_owner": owner, "code_owners": owners})
+    recorded = yaml.safe_load((tmp_path / ".copier-answers.base.yml").read_text())
+    assert recorded["owner_is_org"] is is_org
+
+
+@pytest.mark.parametrize("data", [{"owner_is_org": True, "code_owners": "@andronics"},
+                                  {"owner_is_org": True, "code_owners": "@andronics/maintainers @Andronics"}])  # fmt: skip
+def test_owner_is_org_contradicting_code_owners_fails(base_src: Path, tmp_path: Path, data: dict[str, object]) -> None:
+    """Never recorded, so a later update's replay of this version can't fail on it (0005)."""
+    with pytest.raises(ValueError, match="personal account, not an organisation"):
+        copy(base_src, tmp_path, {**BASE, "github_owner": "andronics", **data})
+
+
 def test_dependabot_automerge_is_opt_in(base_src: Path, tmp_path: Path) -> None:
     for answer, present in (("off", False), ("patch", True)):
         dst = tmp_path / answer
