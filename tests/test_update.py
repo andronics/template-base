@@ -282,3 +282,82 @@ def test_owner_is_org_follows_code_owners_on_update(tmp_path: Path, owner: str, 
     update(project, ".copier-answers.stack-stub.yml")
     assert answers(project, "stack-stub")["base_answers"]["owner_is_org"] is is_org  # type: ignore[index]
     assert_clean(project)
+
+
+PRE_0006_GITLEAKS = """\
+# gitleaks: the default rules, plus allow-listed false positives. Add an entry
+# with a comment saying why, never a blanket path.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secrets"
+paths = [
+  # lock files: integrity hashes look like secrets
+  '''(^|/)(uv\\.lock|pnpm-lock\\.yaml|package-lock\\.json)$''',
+]
+"""
+# The brain's addition to the single file, before decision 0006.
+BRAIN_REGEX = """\
+regexes = [
+  # RFC 6455's sample Sec-WebSocket-Key: base64 of "the sample nonce", quoted in an engineering note
+  '''dGhlIHNhbXBsZSBub25jZQ==''',
+]
+"""
+
+
+def pre_0006_base(dst: Path) -> Path:
+    """Base as v1.0.0 with one template-owned .gitleaks.toml, and as it is now at v1.0.1."""
+    base = stage(ROOT, dst, tag="v1.0.1")
+    sh("git", "switch", "-qc", "before-0006", cwd=base)
+    (base / "template/.gitleaks.toml").write_text(PRE_0006_GITLEAKS)
+    (base / "template/.gitleaks.base.toml").unlink()
+    config = base / "copier.yml"
+    old = re.sub(r"\n  # The project's gitleaks allow-list.*\n.*\n  - \.gitleaks\.toml\n", "\n", config.read_text())
+    assert ".gitleaks.toml" not in old, "copier.yml not rewritten"
+    config.write_text(old)
+    sh(*GIT, "commit", "-qam", "v1.0.0", cwd=base)
+    sh("git", "tag", "v1.0.0", cwd=base)
+    sh("git", "switch", "-q", "main", cwd=base)
+    return base
+
+
+def test_gitleaks_entries_survive_the_0006_update(tmp_path: Path) -> None:
+    """The brain added a regex to the template-owned .gitleaks.toml. The update makes the file the
+    project's as it is: nothing is merged or dropped, and the checks say how to finish the move."""
+    base = pre_0006_base(tmp_path / "template-base")
+    stub = stage(STUB, tmp_path / "template-stub")
+    project = tmp_path / "demo"
+    copy(base, project, BASE, vcs_ref="v1.0.0")
+    copy(stub, project, {})
+    commit(project)
+    gitleaks = project / ".gitleaks.toml"
+    edited = gitleaks.read_text() + BRAIN_REGEX
+    gitleaks.write_text(edited)
+    commit(project)
+
+    update(project, ".copier-answers.base.yml")
+    assert answers(project, "base")["_commit"] == "v1.0.1"
+    assert gitleaks.read_text() == edited, "the project's file must be left as it was"
+    assert (project / ".gitleaks.base.toml").read_text() == (ROOT / "template/.gitleaks.base.toml").read_text()
+    result = checks(commit(project))
+    assert result.returncode != 0 and 'path = ".gitleaks.base.toml"' in result.stdout, result.stdout + result.stderr
+
+    gitleaks.write_text(edited.replace("useDefault = true", 'path = ".gitleaks.base.toml"'))
+    assert_clean(project)
+
+
+def test_gitleaks_project_entries_never_conflict(tmp_path: Path) -> None:
+    """Base changes its allow-list and the seed; the project's .gitleaks.toml is never touched."""
+    base, _, project = stacked(tmp_path)
+    gitleaks = project / ".gitleaks.toml"
+    edited = gitleaks.read_text() + '\n[[allowlists]]\ndescription = "ours"\nstopwords = ["not-a-secret"]\n'
+    gitleaks.write_text(edited)
+    commit(project)
+    release(base, "v1.0.1", "template/.gitleaks.base.toml", "package-lock\\.json", "package-lock\\.json|Cargo\\.lock")
+    release(base, "v1.0.2", "template/.gitleaks.toml", "# [[allowlists]]", "# [[allowlists]]  # one per reason")
+    update(project, ".copier-answers.base.yml")
+    assert answers(project, "base")["_commit"] == "v1.0.2"
+    assert gitleaks.read_text() == edited
+    assert "Cargo\\.lock" in (project / ".gitleaks.base.toml").read_text()
+    assert_clean(project)
