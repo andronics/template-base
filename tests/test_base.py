@@ -361,15 +361,18 @@ def test_edits_stay_in_the_repository(project: Path) -> None:
     assert {p: edit_hook(project, p).returncode for p in cases} == cases
 
 
-def test_scripts_pass_a_stacks_ruff() -> None:
-    """Base's Python scripts pass a code project's ruff at 100 columns (issue #6). None is a .jinja
-    file, so the source is what projects get; a conditional name is matched without its `[% %]`."""
+@pytest.mark.parametrize("target", ["py312", "py313", "py314"])
+def test_scripts_pass_a_stacks_ruff(target: str) -> None:
+    """Base's Python scripts pass a code project's ruff at 100 columns (issue #6), for every Python
+    target a stack sets: py314 formats `except (A, B):` without its brackets (PEP 758). None is a
+    .jinja file, so the source is what projects get; a conditional name is matched without its `[% %]`."""
     scripts = [str(p) for p in (ROOT / "template/scripts").iterdir()
                if re.sub(r"\[%.*?%\]", "", p.name).endswith(".py")]  # fmt: skip
     assert len(scripts) >= 4
     ruff = (sys.executable, "-m", "ruff")
-    sh(*ruff, "check", "--isolated", "--no-cache", "--line-length", "100", "--select", "E501", *scripts, cwd=ROOT)
-    sh(*ruff, "format", "--isolated", "--no-cache", "--check", "--line-length", "100", *scripts, cwd=ROOT)
+    fixed = ("--isolated", "--no-cache", "--target-version", target, "--line-length", "100")
+    sh(*ruff, "check", *fixed, "--select", "E501", *scripts, cwd=ROOT)
+    sh(*ruff, "format", *fixed, "--check", *scripts, cwd=ROOT)
 
 
 def test_workflows_lint(project: Path) -> None:
