@@ -74,6 +74,12 @@ BREAKS = {
                                        "template-stub's file must be named stub-*"),
     "an unprefixed drop-in": (write("scripts/checks.d/30-lint.sh", "# Template-owned: template-stub.\n"),
                               "template-stub's file must be named stub-*"),
+    "a marked drop-in in the project's range": (write("scripts/post-update.d/90-stub-x.sh", "# Template-owned: template-stub.\n"),
+                                                "takes a project's name"),
+    "a marked project drop-in": (write("scripts/checks.d/30-project-x.sh", "# Template-owned: template-stub.\n"),
+                                 "takes a project's name"),
+    "base marking a project step": (write("scripts/bootstrap.d/95-base.sh", "# Template-owned: template-base.\n"),
+                                    "takes a project's name"),
     "no private/ ignore": (edit(".gitignore", "private/\n", ""), "lacks base's entries: private/"),
     "no gitleaks hook": (edit(".pre-commit-config.yaml", "id: gitleaks", "id: other"), "lacks the id: gitleaks hook"),
     "no gh allow": (drop_permission("allow", "Bash(gh:*)"), "allow lacks: Bash(gh:*)"),
@@ -108,6 +114,8 @@ def test_contract_fails(case: str, project: Path, tmp_path: Path) -> None:
 ALLOWED = {
     "a project workflow": write(".github/workflows/brain-commit.yml", "name: mine\non: push\njobs: {}\n"),
     "a project drop-in": write("scripts/checks.d/50-mine.sh", "echo mine\n"),
+    "a project post-update step": write("scripts/post-update.d/90-project-x.sh", "echo mine\n"),
+    "a project check": write("scripts/checks.d/90-project-x.sh", "echo mine\n"),
     "a project gitleaks entry": edit(".gitleaks.toml", "\n# [[allowlists]]", '\n[[allowlists]]\nstopwords = ["x"]\n#'),
     "a feature overlay": lambda p: (
         write(".copier-answers.docker.yml", "_src_path: gh:andronics/template-docker\n")(p),
