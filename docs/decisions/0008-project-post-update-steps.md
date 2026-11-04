@@ -2,7 +2,7 @@
 
 <!-- Add a line for this record to the index in docs/decisions/README.md (CI checks). -->
 
-Status: Proposed
+Status: Approved (2026-11-04)
 Date: 2026-11-04
 Authors: Stephen Cox
 
@@ -93,7 +93,7 @@ already sets, under a range of names no template ships.
   two of its own steps without inventing one. *Rejected.*
 - **Fail any unmarked drop-in outside `9N-project-*`:** makes the range a rule rather than a convention,
   but breaks projects that already have one (`50-mine.sh` is in the allowed cases on purpose). *Rejected*
-  for now; see the open questions.
+  for now; see the resolved questions.
 
 ## Consequences
 
@@ -106,13 +106,14 @@ already sets, under a range of names no template ships.
 - No migration: base's change is comments, docs, one contract case and tests. Rollback is reverting them;
   project steps still run, as unmarked drop-ins do today.
 
-## Open questions
+## Resolved questions
 
-- **Should the contract later fail an unmarked drop-in outside `9N-project-*`?** Recommendation: not now. It
-  would break existing project drop-ins for little gain; the marker already tells template files from
-  project ones. Revisit if a project's step is found running before a template's by accident.
-- **Is `9N-project-*` the right name, or just `9N-*`?** Recommendation: keep `project` in the name. The
-  number alone sorts it, but the word says whose it is when someone reads the folder, and the contract can
-  catch a template using it.
-- **Should base ship an example (a commented `90-project-example.sh.off`, say)?** Recommendation: no. It
-  would be a template-owned file in a project's range; the runners' comments and the README are enough.
+Approved by the brain coordinator for Stephen, 2026-11-04, with each open question answered as recommended:
+
+1. **Should the contract later fail an unmarked drop-in outside `9N-project-*`?** Not now: it would break
+   existing project drop-ins for little gain, and the marker already tells template files from project
+   ones. Revisit if a project's step is found running before a template's by accident.
+2. **Is `9N-project-*` the right name, or just `9N-*`?** Keep `project` in the name: `9N-project-<what>.sh`.
+   The word says whose it is when someone reads the folder, and the contract can catch a template using it.
+3. **Should base ship an example (a commented `90-project-example.sh.off`, say)?** No: it would be a
+   template-owned file in a project's range; the runners' comments and the README are enough.
