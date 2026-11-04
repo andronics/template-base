@@ -112,7 +112,8 @@ project-template's `docs/design/`.
   Documentation link (issue #1), so those two are slots as well.
 - **Drop-in folders:** `scripts/checks.d/`, `scripts/post-update.d/`, `scripts/bootstrap.d/`. Base's runners
   (`checks.sh`, `post-update.sh`, `bootstrap.sh`) run every `*.sh` in each folder in name order. An overlay
-  changes behaviour by adding a file, never by editing a base file.
+  changes behaviour by adding a file, never by editing a base file. Templates number their drop-ins
+  `00`–`89`; `90`–`99` and the name `project` are the project's, `9N-project-<what>.sh` (0008).
 - **What a drop-in may assume** (issue #4). Anything else it needs, it checks for and names when missing:
   - `checks.d/` runs in base-ci's `checks` job and locally (the Definition of done); `post-update.d/` in
     `template-update.yml`'s `update` job and locally after a local `copier update`. Both jobs are
@@ -129,7 +130,8 @@ project-template's `docs/design/`.
     installing it in these jobs: base would still name no overlay, but it would know one stack's file.
     Revisit if a lock refresh breaks on the runner's Node.
 - **Ownership by name:** `base-*` (and `template-update.yml`, `pr-title.yml`, the runners) are base's;
-  `<overlay>-*` workflows and `NN-<overlay>*.sh` drop-ins are an overlay's; anything else is the project's.
+  `<overlay>-*` workflows and `NN-<overlay>*.sh` drop-ins are an overlay's; anything else is the project's,
+  its own drop-ins named `9N-project-<what>.sh` (0008).
   Every template-owned script and workflow carries `Template-owned: template-<name>` near its top. The
   contract check learns owners from that marker and from the answers files, so base never needs a list of
   overlays.
@@ -142,7 +144,8 @@ project-template's `docs/design/`.
 - a slot is missing, `stack-ci.yml` isn't `workflow_call`, `dependabot.yml` lacks `github-actions`, the
   PR template lacks the "Template problem found?" item, or the issue-form config lacks the private
   security-advisory link;
-- a marked file names a template with no answers file, or an overlay's workflow or drop-in lacks its prefix;
+- a marked file names a template with no answers file, or an overlay's workflow or drop-in lacks its prefix,
+  or a marked drop-in takes a project's name (`90`–`99` or `NN-project-*`, 0008);
 - a composite file lacks an entry base's rules depend on. In `.gitignore`: `.env`, `secrets/`, `private/`,
   keys, the local Claude files and the graphify caches. In pre-commit: the gitleaks hook. In
   `.claude/settings.json`: the allow and deny lists below, and the repository-boundary hook;

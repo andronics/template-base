@@ -313,6 +313,23 @@ def test_runners_run_drop_ins_in_order(project: Path, tmp_path: Path) -> None:
         assert out[:2] == [f"{folder}/10-a.sh", f"{folder}/20-b.sh"], out
 
 
+def test_project_steps_run_after_the_templates(project: Path, tmp_path: Path) -> None:
+    """A project's 9N-project-* post-update step runs after every template's, and fails the run (0008)."""
+    dst = tmp_path / "p"
+    shutil.copytree(project, dst)
+    steps = dst / "scripts/post-update.d"
+    steps.mkdir()
+    (steps / "90-project-x.sh").write_text("echo project\n")
+    (steps / "20-stub-lock.sh").write_text("# Template-owned: template-stub.\necho stub\n")
+    out = sh("sh", "scripts/post-update.sh", cwd=dst).splitlines()
+    assert out == ["stub", "project", "post-update done"], out
+    (steps / "91-project-fail.sh").write_text("echo failing; exit 3\n")
+    result = subprocess.run(["sh", "scripts/post-update.sh"], cwd=dst, capture_output=True, text=True,
+                            env=project_env())  # fmt: skip
+    assert result.returncode != 0, result.stdout
+    assert result.stdout.splitlines() == ["stub", "project", "failing"], result.stdout
+
+
 def test_docs_secrets_without_docker(project: Path, tmp_path: Path) -> None:
     """Optional locally, never skipped in CI."""
     bin_dir = tmp_path / "bin"

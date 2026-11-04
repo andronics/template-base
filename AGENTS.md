@@ -21,7 +21,8 @@ projects get are in `template/AGENTS.md.jinja`. Why it is split this way: `docs/
 
 - **Base never names an overlay.** No stack, language or kind switch in `template/` or `copier.yml`
   (`tests/test_base.py::test_base_names_no_overlay`). An overlay extends base through a slot or a drop-in
-  folder (`scripts/checks.d/`, `post-update.d/`, `bootstrap.d/`), never by editing a base file.
+  folder (`scripts/checks.d/`, `post-update.d/`, `bootstrap.d/`), never by editing a base file. Templates
+  number drop-ins `00`–`89`; `9N-project-*.sh` is the project's (0008), and the contract fails a marked one.
 - **One owner per file.** A file base writes is never written by an overlay, and the reverse.
 - **Overlays read base's answers through their own `base_answers` answer**, never `_external_data` directly:
   `copier update` replays without `.copier-answers.base.yml` (0001, `tests/test_update.py`).
