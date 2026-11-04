@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/andronics/template-base/compare/v2.2.1...v2.2.2) (2026-11-04)
+
+
+### 🐛 Bug Fixes
+
+* **scripts:** format the same for every Python target ([#56](https://github.com/andronics/template-base/issues/56)) ([d507fa9](https://github.com/andronics/template-base/commit/d507fa94d3cd09f4d28499875b3a6ce88ef21c90))
+
 ## [2.2.1](https://github.com/andronics/template-base/compare/v2.2.0...v2.2.1) (2026-11-03)
 
 
