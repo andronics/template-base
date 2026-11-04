@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/andronics/template-base/compare/v2.3.0...v2.4.0) (2026-11-04)
+
+
+### ✨ Features
+
+* **meta:** the platform centre's meta module (brain record 0019) ([#61](https://github.com/andronics/template-base/issues/61)) ([9a06345](https://github.com/andronics/template-base/commit/9a0634511cfe798a4fddf870fbcc64d43eccf26e))
+
+
+### 🐛 Bug Fixes
+
+* **metadata:** descriptions with any Unicode give valid TOML ([#62](https://github.com/andronics/template-base/issues/62)) ([212936c](https://github.com/andronics/template-base/commit/212936c5e7b83704a4dd0ae776393f6613e6f5e0))
+
 ## [2.3.0](https://github.com/andronics/template-base/compare/v2.2.2...v2.3.0) (2026-11-04)
 
 
