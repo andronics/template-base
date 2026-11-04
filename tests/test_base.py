@@ -17,11 +17,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
-from conftest import BASE
+from conftest import BASE, STUB
 from stacking import ROOT, checks, commit, copy, project_env, sh, sibling, stage
 
 
@@ -47,6 +48,21 @@ def test_checks_pass(project: Path) -> None:
     result = checks(project)
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.splitlines() == ["00-base OK", "20-stub OK"]
+
+
+def test_any_unicode_description_gives_valid_toml(base_src: Path, tmp_path: Path) -> None:
+    """`tojson` escapes 💡 as a surrogate pair, which TOML rejects; the description must read back exactly."""
+    description = 'Ideas 💡 in 漢字, with a "quote" and a back\\slash'
+    dst = tmp_path / "demo"
+    copy(base_src, dst, {**BASE, "description": description})
+    copy(STUB, dst, {})
+    commit(dst)
+    validate = subprocess.run([sys.executable, "scripts/repo-metadata.py", "--validate"], cwd=dst,
+                              capture_output=True, text=True)  # fmt: skip
+    assert validate.returncode == 0, validate.stdout + validate.stderr
+    assert tomllib.loads((dst / ".github/repository.toml").read_text(encoding="utf-8"))["description"] == description
+    result = checks(dst)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_answers_files(project: Path) -> None:
