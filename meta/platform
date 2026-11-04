@@ -1,0 +1,506 @@
+#!/usr/bin/env python3
+"""meta platform: the platform centre's module for `meta` (the brain's design record 0019).
+
+Read-only answers to "how are the templates?": each template's latest release and its CI on
+main, the release PRs Tagwarden has open, and the repos behind their template (Courier's open
+update PRs). It reads GitHub only through `gh api graphql`, one call per run, and writes nothing.
+
+    meta/platform --meta-manifest
+    meta/platform status [--json]
+    meta/platform list templates|updates|releases [--json]
+    meta/platform show <template> [--json]
+    meta/platform releases [--since YYYY-MM-DD] [--json]
+
+Standard library only; the core (`meta` in andronics/brain) caches whole outputs, so this keeps
+no cache of its own.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import UTC, datetime, timedelta
+
+OWNER = "andronics"
+TEMPLATES = ("base", "obsidian", "python", "typescript", "container", "actors", "go")
+REPOS = tuple(f"template-{t}" for t in TEMPLATES)
+COURIER = "andronics-courier"
+TAGWARDEN = "andronics-tagwarden"
+RELEASE_TITLE = re.compile(r"^chore\(main\): release (\S+)$")
+WIDTH = 100
+UPDATE_STALE = timedelta(days=7)
+
+# Exit codes: record 0019 §3.
+OK, PROBLEM, USAGE, FAILED, NOT_FOUND = 0, 1, 2, 4, 5
+
+MANIFEST = {
+    "meta": 1,
+    "centre": "platform",
+    "owner": "platform-coordinator",
+    "summary": "the seven templates: releases, CI on main, and the repos behind their template",
+    "verbs": {
+        "status": {"summary": "each template's latest release and CI on main; repos behind", "cache": 120},
+        "list": {
+            "summary": "templates | updates | releases",
+            "args": ["what"],
+            "complete": ["templates", "updates", "releases"],
+            "cache": 300,
+        },
+        "show": {
+            "summary": "one template: release, CI, open PRs, release PR",
+            "args": ["template"],
+            "complete": "list templates",
+            "cache": 120,
+        },
+        "releases": {"summary": "template releases since a date (default: the last 7 days)", "cache": 600},
+    },
+    "results": [1, 5],
+}
+
+HELP = """\
+meta platform: the seven templates (andronics/template-*), read-only
+
+  status                   each template's latest release and CI on main; repos behind
+  list templates           the seven template repositories
+  list updates             Courier's open template-update PRs, as owner/repo#N
+  list releases            Tagwarden's open release PRs in the templates, as owner/repo#N
+  show <template>          one template: release, CI on main, open PRs, release PR
+  releases [--since DATE]  template releases since DATE (YYYY-MM-DD), default the last 7 days
+
+Every verb takes --json. Exit: 0 all well, 1 a problem found, 2 usage, 4 GitHub unreachable,
+5 no such template."""
+
+# Token shapes that must never reach output (GitHub's prefixes, fine-grained PATs, bearer values).
+SECRET = re.compile(
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})"
+    r"|(?i:\b(?:bearer|token)\s+)[A-Za-z0-9_\-.=]{20,}"
+)
+
+
+class Fail(Exception):
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def redact(text: str) -> str:
+    return SECRET.sub("[redacted]", text)
+
+
+def scrub(value: object) -> object:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [scrub(v) for v in value]
+    if isinstance(value, dict):
+        return {k: scrub(v) for k, v in value.items()}
+    return value
+
+
+def warn(message: str) -> None:
+    print(redact(f"meta platform: {message}")[:WIDTH], file=sys.stderr)
+
+
+# ---------------------------------------------------------------- time
+
+
+def now() -> datetime:
+    fixed = os.environ.get("META_PLATFORM_NOW")  # tests only: a fixed clock for recorded fixtures
+    return parse_time(fixed) if fixed else datetime.now(UTC)
+
+
+def parse_time(text: str) -> datetime:
+    when = datetime.fromisoformat(text)
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
+
+
+def stamp(when: datetime | None) -> str:
+    return when.astimezone().strftime("%Y-%m-%d %H:%M") if when else "-"
+
+
+def age(when: datetime | None) -> str:
+    if when is None:
+        return "-"
+    seconds = max(0, int((now() - when).total_seconds()))
+    for unit, size in (("d", 86400), ("h", 3600), ("m", 60)):
+        if seconds >= size:
+            return f"{seconds // size}{unit} ago"
+    return "just now"
+
+
+# ---------------------------------------------------------------- GitHub
+
+
+QUERY = """
+query($n: Int!) {
+%s
+  updates: search(query: "is:pr is:open archived:false author:app/%s user:%s", type: ISSUE, first: 100) {
+    issueCount
+    nodes { ... on PullRequest { number title url createdAt repository { nameWithOwner } } }
+  }
+}
+fragment T on Repository {
+  name url
+  releases(first: $n, orderBy: {field: CREATED_AT, direction: DESC}) {
+    nodes { tagName publishedAt isDraft isPrerelease url }
+  }
+  defaultBranchRef { name target { ... on Commit { oid committedDate statusCheckRollup { state } } } }
+  pullRequests(states: OPEN, first: 50, orderBy: {field: CREATED_AT, direction: DESC}) {
+    totalCount
+    nodes { number title url createdAt author { login } }
+  }
+}
+"""
+
+
+def fetch(releases: int) -> dict:
+    """One `gh api graphql` call for all seven repos and Courier's open PRs."""
+    repos = "\n".join(
+        f'  r{i}: repository(owner: "{OWNER}", name: "{name}") {{ ...T }}' for i, name in enumerate(REPOS)
+    )
+    query = QUERY % (repos, COURIER, OWNER)
+    timeout = 15.0
+    try:
+        timeout = max(1.0, float(os.environ.get("META_TIMEOUT", "16")) - 1)
+    except ValueError:
+        pass
+    argv = ["gh", "api", "graphql", "-f", f"query={query}", "-F", f"n={releases}"]
+    try:
+        run = subprocess.run(
+            argv, check=False, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL
+        )
+    except FileNotFoundError:
+        raise Fail(FAILED, "gh is not installed or not on PATH") from None
+    except subprocess.TimeoutExpired:
+        raise Fail(FAILED, f"GitHub did not answer within {timeout:.0f}s") from None
+    if run.returncode != 0:
+        first = (run.stderr.strip().splitlines() or ["no message"])[0]
+        raise Fail(FAILED, f"GitHub unreachable: gh exited {run.returncode}: {first}")
+    try:
+        body = json.loads(run.stdout)
+    except json.JSONDecodeError:
+        raise Fail(FAILED, "GitHub answered with something that is not JSON") from None
+    data = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(data, dict):
+        errors = body.get("errors") if isinstance(body, dict) else None
+        message = errors[0].get("message", "") if errors and isinstance(errors[0], dict) else ""
+        raise Fail(FAILED, f"GitHub answered with no data: {message}".rstrip(": "))
+    return data
+
+
+def login(author: dict | None) -> str:
+    name = (author or {}).get("login") or ""
+    return name.removeprefix("app/").removesuffix("[bot]")
+
+
+def template(raw: dict | None, name: str) -> dict:
+    """One repository's GraphQL answer as the fields every verb uses."""
+    raw = raw or {}
+    releases = [
+        {
+            "tag": r.get("tagName", ""),
+            "published": parse_time(r["publishedAt"]) if r.get("publishedAt") else None,
+            "url": r.get("url", ""),
+        }
+        for r in (raw.get("releases") or {}).get("nodes") or []
+        if r and not r.get("isDraft") and not r.get("isPrerelease")
+    ]
+    target = ((raw.get("defaultBranchRef") or {}).get("target")) or {}
+    rollup = (target.get("statusCheckRollup") or {}).get("state")
+    ci = {
+        "SUCCESS": "passing",
+        "FAILURE": "failing",
+        "ERROR": "failing",
+        "PENDING": "running",
+        "EXPECTED": "running",
+    }.get(rollup or "", "none")
+    prs = raw.get("pullRequests") or {}
+    release_pr = None
+    for pr in prs.get("nodes") or []:
+        match = RELEASE_TITLE.match(pr.get("title", ""))
+        if match and login(pr.get("author")) == TAGWARDEN:
+            release_pr = {"number": pr["number"], "version": match.group(1), "url": pr.get("url", "")}
+            break
+    return {
+        "name": name,
+        "found": bool(raw),
+        "url": raw.get("url", f"https://github.com/{OWNER}/{name}"),
+        "releases": releases,
+        "latest": releases[0] if releases else None,
+        "ci": ci,
+        "ci_commit": (target.get("oid") or "")[:7],
+        "ci_since": parse_time(target["committedDate"]) if target.get("committedDate") else None,
+        "open_prs": prs.get("totalCount", 0),
+        "release_pr": release_pr,
+    }
+
+
+def load(releases: int = 5) -> tuple[list[dict], list[dict]]:
+    data = fetch(releases)
+    templates = [template(data.get(f"r{i}"), name) for i, name in enumerate(REPOS)]
+    updates = [
+        {
+            "name": f"{pr['repository']['nameWithOwner']}#{pr['number']}",
+            "repo": pr["repository"]["nameWithOwner"],
+            "number": pr["number"],
+            "title": pr.get("title", ""),
+            "url": pr.get("url", ""),
+            "created": parse_time(pr["createdAt"]),
+        }
+        for pr in (data.get("updates") or {}).get("nodes") or []
+        if pr and pr.get("repository")
+    ]
+    return templates, updates
+
+
+# ---------------------------------------------------------------- verbs
+
+
+def check_template(t: dict) -> dict:
+    latest = t["latest"]
+    release = f"{latest['tag']} {age(latest['published'])}" if latest else "no release"
+    pending = f", release {t['release_pr']['version']} open" if t["release_pr"] else ""
+    ci = {"passing": "CI passing", "failing": "CI failing", "running": "CI running", "none": "no CI"}[t["ci"]]
+    if not t["found"]:
+        state, detail = "unknown", "repository not readable"
+    elif t["ci"] == "failing":
+        state = "fail"
+    elif t["ci"] in ("running", "none"):
+        state = "unknown"
+    elif latest is None:
+        state = "warn"
+    else:
+        state = "ok"
+    if t["found"]:
+        detail = f"{release}, {ci} on main{pending}"
+    check = {"name": t["name"], "state": state, "detail": detail}
+    if state != "ok" and t["ci_since"]:
+        check["since"] = t["ci_since"].isoformat()
+    return check
+
+
+def check_updates(updates: list[dict]) -> dict:
+    if not updates:
+        return {"name": "updates", "state": "ok", "detail": "no repo behind its template"}
+    repos = sorted({u["repo"].split("/", 1)[1] for u in updates})
+    oldest = min(u["created"] for u in updates)
+    stale = now() - oldest > UPDATE_STALE
+    detail = f"{len(repos)} behind ({', '.join(repos)}), oldest PR {age(oldest)}"
+    check = {"name": "updates", "state": "warn" if stale else "ok", "detail": detail}
+    if stale:
+        check["since"] = oldest.isoformat()
+    return check
+
+
+RANK = {"ok": 0, "unknown": 1, "warn": 2, "fail": 3}
+
+
+def status(args: list[str], as_json: bool) -> int:
+    expect(args, 0, "status")
+    templates, updates = load()
+    checks = [check_template(t) for t in templates] + [check_updates(updates)]
+    state = max((c["state"] for c in checks), key=RANK.__getitem__)
+    counts = {s: sum(c["state"] == s for c in checks) for s in RANK}
+    if state == "ok":
+        summary = f"all {len(templates)} templates released and green on main"
+    else:
+        summary = ", ".join(f"{n} {s}" for s, n in counts.items() if n and s != "ok") + f" of {len(checks)} checks"
+    if as_json:
+        emit({"summary": summary, "state": state, "checks": checks})
+    else:
+        lines = [f"{paint(state)}  platform: {summary}"]
+        width = max(len(c["name"]) for c in checks)
+        lines += [f"{paint(c['state'])}  {c['name']:<{width}}  {c['detail']}" for c in checks]
+        out(lines)
+    return PROBLEM if any(c["state"] in ("warn", "fail") for c in checks) else OK
+
+
+def list_(args: list[str], as_json: bool) -> int:
+    expect(args, 1, "list <what>")
+    what = args[0]
+    if what not in ("templates", "updates", "releases"):
+        raise Fail(USAGE, f"list: unknown kind {what!r}; use templates, updates or releases")
+    if what == "templates" and not as_json:
+        out(sorted(REPOS))  # the seven names are fixed: completion never waits on GitHub
+        return OK
+    templates, updates = load()
+    if what == "templates":
+        rows = [
+            {
+                "name": t["name"],
+                "latest_release": t["latest"]["tag"] if t["latest"] else None,
+                "ci": t["ci"],
+                "url": t["url"],
+            }
+            for t in templates
+        ]
+    elif what == "updates":
+        rows = [{**u, "created": u["created"].isoformat()} for u in updates]
+    else:
+        rows = [
+            {
+                "name": f"{OWNER}/{t['name']}#{t['release_pr']['number']}",
+                "repo": f"{OWNER}/{t['name']}",
+                **t["release_pr"],
+            }
+            for t in templates
+            if t["release_pr"]
+        ]
+    rows.sort(key=lambda r: r["name"])
+    if as_json:
+        emit(rows)
+    else:
+        out([r["name"] for r in rows])
+    return OK
+
+
+def show(args: list[str], as_json: bool) -> int:
+    expect(args, 1, "show <template>")
+    wanted = args[0] if args[0].startswith("template-") else f"template-{args[0]}"
+    if wanted not in REPOS:
+        raise Fail(NOT_FOUND, f"no template {args[0]!r}; meta platform list templates names them")
+    t = next(t for t in load()[0] if t["name"] == wanted)
+    if not t["found"]:
+        raise Fail(FAILED, f"{wanted} is not readable on GitHub")
+    latest, pr = t["latest"], t["release_pr"]
+    data = {
+        "name": t["name"],
+        "url": t["url"],
+        "latest_release": latest["tag"] if latest else None,
+        "released": latest["published"].isoformat() if latest and latest["published"] else None,
+        "ci": t["ci"],
+        "ci_commit": t["ci_commit"] or None,
+        "open_prs": t["open_prs"],
+        "release_pr": pr["number"] if pr else None,
+        "release_version": pr["version"] if pr else None,
+    }
+    if as_json:
+        emit(data)
+        return OK
+    lines = [
+        f"name: {t['name']}",
+        f"latest release: {latest['tag'] if latest else 'none'}",
+        f"released: {stamp(latest['published']) + ' (' + age(latest['published']) + ')' if latest else '-'}",
+        f"ci on main: {t['ci']}" + (f" ({t['ci_commit']})" if t["ci_commit"] else ""),
+        f"open prs: {t['open_prs']}",
+        f"release pr: {'#' + str(pr['number']) if pr else 'none'}",
+        f"release version: {pr['version'] if pr else '-'}",
+        "",
+        t["url"],
+    ]
+    if pr:
+        lines.append(f"Tagwarden's release PR for {pr['version']} is open: {pr['url']}")
+    out(lines)
+    return OK
+
+
+def releases(args: list[str], as_json: bool) -> int:
+    since = now() - timedelta(days=7)
+    rest = list(args)
+    if rest[:1] == ["--since"]:
+        if len(rest) < 2:
+            raise Fail(USAGE, "releases: --since needs a date, YYYY-MM-DD")
+        since, rest = parse_since(rest[1]), rest[2:]
+    elif rest and rest[0].startswith("--since="):
+        since, rest = parse_since(rest[0].split("=", 1)[1]), rest[1:]
+    expect(rest, 0, "releases [--since YYYY-MM-DD]")
+    templates, _ = load(releases=50)
+    rows = sorted(
+        (
+            {
+                "name": f"{t['name']} {r['tag']}",
+                "template": t["name"],
+                "tag": r["tag"],
+                "published": r["published"],
+                "url": r["url"],
+            }
+            for t in templates
+            for r in t["releases"]
+            if r["published"] and r["published"] >= since
+        ),
+        key=lambda r: r["published"],
+        reverse=True,
+    )
+    for t in templates:
+        if len(t["releases"]) >= 50 and t["releases"][-1]["published"] and t["releases"][-1]["published"] >= since:
+            warn(f"{t['name']}: only its 50 newest releases are read")
+    if as_json:
+        emit([{**r, "published": r["published"].isoformat()} for r in rows])
+    elif rows:
+        width = max(len(r["template"]) for r in rows)
+        out([f"{stamp(r['published'])}  {r['template']:<{width}}  {r['tag']}" for r in rows])
+    return OK
+
+
+def parse_since(text: str) -> datetime:
+    try:
+        return parse_time(text)
+    except ValueError:
+        raise Fail(USAGE, f"releases: {text!r} is not a date; use YYYY-MM-DD") from None
+
+
+# ---------------------------------------------------------------- output
+
+
+COLOURS = {"ok": "32", "warn": "33", "fail": "31", "unknown": "90"}
+
+
+def paint(state: str) -> str:
+    word = f"{state:<7}"
+    if sys.stdout.isatty() and "NO_COLOR" not in os.environ:
+        return f"\033[{COLOURS[state]}m{word}\033[0m"
+    return word
+
+
+def out(lines: list[str]) -> None:
+    for line in lines:
+        line = redact(line)
+        visible = re.sub(r"\033\[[0-9;]*m", "", line)
+        if len(visible) > WIDTH:
+            line = visible[: WIDTH - 1] + "…"
+        print(line)
+
+
+def emit(value: object) -> None:
+    print(json.dumps(scrub(value), separators=(",", ":")))
+
+
+def expect(args: list[str], count: int, usage: str) -> None:
+    for arg in args:
+        if arg.startswith("-"):
+            raise Fail(USAGE, f"unknown option {arg!r}; usage: {usage}")
+    if len(args) != count:
+        raise Fail(USAGE, f"usage: {usage}")
+
+
+VERBS = {"status": status, "list": list_, "show": show, "releases": releases}
+
+
+def main(argv: list[str]) -> int:
+    if argv[:1] == ["--meta-manifest"]:
+        print(json.dumps(MANIFEST, indent=2))
+        return OK
+    if not argv or argv[0] in ("--help", "-h", "help"):
+        print(HELP, file=sys.stdout if argv else sys.stderr)
+        return OK if argv else USAGE
+    verb, args = argv[0], argv[1:]
+    if "--help" in args or "-h" in args:
+        print(HELP)
+        return OK
+    as_json = "--json" in args or os.environ.get("META_JSON") == "1"
+    args = [a for a in args if a != "--json"]
+    if verb not in VERBS:
+        warn(f"unknown verb {verb!r}; verbs: {', '.join(VERBS)}")
+        return USAGE
+    try:
+        return VERBS[verb](args, as_json)
+    except Fail as fault:
+        warn(str(fault))
+        return fault.code
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

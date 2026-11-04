@@ -1,0 +1,335 @@
+{
+ "data": {
+  "r0": {
+   "name": "template-base",
+   "url": "https://github.com/andronics/template-base",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v2.3.0",
+      "publishedAt": "2026-11-04T03:29:44Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-base/releases/tag/v2.3.0"
+     },
+     {
+      "tagName": "v2.2.2",
+      "publishedAt": "2026-11-04T03:05:19Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-base/releases/tag/v2.2.2"
+     },
+     {
+      "tagName": "v2.2.1",
+      "publishedAt": "2026-11-04T01:32:15Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-base/releases/tag/v2.2.1"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "4d83df9e69b01822a1337f8510a458eaca424ef9",
+     "committedDate": "2026-11-04T03:29:30Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 0,
+    "nodes": []
+   }
+  },
+  "r1": {
+   "name": "template-obsidian",
+   "url": "https://github.com/andronics/template-obsidian",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v1.5.1",
+      "publishedAt": "2026-11-04T02:48:28Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-obsidian/releases/tag/v1.5.1"
+     },
+     {
+      "tagName": "v1.5.0",
+      "publishedAt": "2026-11-04T02:43:06Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-obsidian/releases/tag/v1.5.0"
+     },
+     {
+      "tagName": "v1.4.0",
+      "publishedAt": "2026-11-03T18:53:19Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-obsidian/releases/tag/v1.4.0"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "c05a873afd9f345804927f4dc2ba42ae1a7f8462",
+     "committedDate": "2026-11-04T02:48:16Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 0,
+    "nodes": []
+   }
+  },
+  "r2": {
+   "name": "template-python",
+   "url": "https://github.com/andronics/template-python",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v2.6.1",
+      "publishedAt": "2026-11-04T04:09:25Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-python/releases/tag/v2.6.1"
+     },
+     {
+      "tagName": "v2.6.0",
+      "publishedAt": "2026-11-04T03:57:55Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-python/releases/tag/v2.6.0"
+     },
+     {
+      "tagName": "v2.5.1",
+      "publishedAt": "2026-11-04T03:26:41Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-python/releases/tag/v2.5.1"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "70eec107667e713a708eb4d02a0fdea57a8a18d7",
+     "committedDate": "2026-11-04T04:09:15Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 1,
+    "nodes": [
+     {
+      "number": 54,
+      "title": "feat!: add a built-in health command for the image HEALTHCHECK",
+      "url": "https://github.com/andronics/template-python/pull/54",
+      "createdAt": "2026-11-03T18:17:08Z",
+      "author": {
+       "login": "andronics"
+      }
+     }
+    ]
+   }
+  },
+  "r3": {
+   "name": "template-typescript",
+   "url": "https://github.com/andronics/template-typescript",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v2.1.5",
+      "publishedAt": "2026-11-04T03:59:02Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-typescript/releases/tag/v2.1.5"
+     },
+     {
+      "tagName": "v2.1.4",
+      "publishedAt": "2026-11-04T01:50:56Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-typescript/releases/tag/v2.1.4"
+     },
+     {
+      "tagName": "v2.1.3",
+      "publishedAt": "2026-11-02T19:55:10Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-typescript/releases/tag/v2.1.3"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "5c228879af2ff06e40ccca1f29f0e251bb9f9824",
+     "committedDate": "2026-11-04T03:58:51Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 0,
+    "nodes": []
+   }
+  },
+  "r4": {
+   "name": "template-container",
+   "url": "https://github.com/andronics/template-container",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v2.2.2",
+      "publishedAt": "2026-11-04T02:40:05Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-container/releases/tag/v2.2.2"
+     },
+     {
+      "tagName": "v2.2.1",
+      "publishedAt": "2026-11-04T01:50:59Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-container/releases/tag/v2.2.1"
+     },
+     {
+      "tagName": "v2.2.0",
+      "publishedAt": "2026-11-04T01:39:00Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-container/releases/tag/v2.2.0"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "c0b04dc6281bce7c963d1cc952b4ec2846b04c61",
+     "committedDate": "2026-11-04T02:39:53Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 1,
+    "nodes": [
+     {
+      "number": 17,
+      "title": "feat(ci): smoke test waits for the container to report healthy",
+      "url": "https://github.com/andronics/template-container/pull/17",
+      "createdAt": "2026-11-03T18:17:18Z",
+      "author": {
+       "login": "andronics"
+      }
+     }
+    ]
+   }
+  },
+  "r5": {
+   "name": "template-actors",
+   "url": "https://github.com/andronics/template-actors",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v1.0.0",
+      "publishedAt": "2026-11-03T02:34:50Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-actors/releases/tag/v1.0.0"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "58261b76149c5548e116b8b275bf883544c9d60b",
+     "committedDate": "2026-11-03T02:34:38Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 0,
+    "nodes": []
+   }
+  },
+  "r6": {
+   "name": "template-go",
+   "url": "https://github.com/andronics/template-go",
+   "releases": {
+    "nodes": [
+     {
+      "tagName": "v1.0.2",
+      "publishedAt": "2026-11-04T04:00:08Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-go/releases/tag/v1.0.2"
+     },
+     {
+      "tagName": "v1.0.1",
+      "publishedAt": "2026-11-04T02:40:01Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-go/releases/tag/v1.0.1"
+     },
+     {
+      "tagName": "v1.0.0",
+      "publishedAt": "2026-11-04T02:26:33Z",
+      "isDraft": false,
+      "isPrerelease": false,
+      "url": "https://github.com/andronics/template-go/releases/tag/v1.0.0"
+     }
+    ]
+   },
+   "defaultBranchRef": {
+    "name": "main",
+    "target": {
+     "oid": "74cb536e33b0a824f2355590cb358454a5d33c1e",
+     "committedDate": "2026-11-04T03:59:57Z",
+     "statusCheckRollup": {
+      "state": "SUCCESS"
+     }
+    }
+   },
+   "pullRequests": {
+    "totalCount": 1,
+    "nodes": [
+     {
+      "number": 31,
+      "title": "chore(main): release 1.0.3",
+      "url": "https://github.com/andronics/template-go/pull/31",
+      "createdAt": "2026-11-04T04:30:00Z",
+      "author": {
+       "login": "andronics-tagwarden"
+      }
+     }
+    ]
+   }
+  },
+  "updates": {
+   "issueCount": 1,
+   "nodes": [
+    {
+     "number": 150,
+     "title": "chore: update from template-base v2.3.0",
+     "url": "https://github.com/andronics/example-project/pull/150",
+     "createdAt": "2026-10-20T03:40:00Z",
+     "repository": {
+      "nameWithOwner": "andronics/example-project"
+     }
+    }
+   ]
+  }
+ }
+}
