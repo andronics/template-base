@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/andronics/template-base/compare/v2.2.2...v2.3.0) (2026-11-04)
+
+
+### ✨ Features
+
+* a project's own steps after a template update (0008) ([#60](https://github.com/andronics/template-base/issues/60)) ([5ff49d4](https://github.com/andronics/template-base/commit/5ff49d4ade9619f8415604778efaf5b6a3d5a3b8))
+
+
+### 📚 Documentation
+
+* **decisions:** propose project steps after a template update (0008) ([#57](https://github.com/andronics/template-base/issues/57)) ([18cf9f5](https://github.com/andronics/template-base/commit/18cf9f54b46a1775093dd6f7804c506d6f7f759e))
+
 ## [2.2.2](https://github.com/andronics/template-base/compare/v2.2.1...v2.2.2) (2026-11-04)
 
 
