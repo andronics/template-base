@@ -109,7 +109,9 @@ def check_owners(root: Path, found: dict[str, bool], errors: list[str]) -> None:
         rel = path.relative_to(root).as_posix()
         try:
             head = "\n".join(path.read_text(encoding="utf-8").splitlines()[:12])
-        except (UnicodeDecodeError, OSError):
+        except UnicodeDecodeError:  # one type per clause: ruff formats a bare tuple by target
+            continue
+        except OSError:
             continue
         match = MARKER.search(head)
         if not match:
