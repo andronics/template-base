@@ -358,6 +358,42 @@ def test_docs_secrets_without_docker(project: Path, tmp_path: Path) -> None:
         assert result.returncode == code, result.stdout + result.stderr
 
 
+# A fake tool that reports a version and records its arguments: A42's binary-first lookup, offline.
+@pytest.mark.parametrize(("script", "tool", "flag", "version"), [
+    ("scripts/check-docs-secrets.sh", "gitleaks", "version", "8.30.1"),
+    ("scripts/check-workflows.sh", "actionlint", "-version", "1.7.12"),
+])  # fmt: skip
+def test_scripts_binary_first(project: Path, tmp_path: Path, script: str, tool: str, flag: str, version: str) -> None:
+    """The pinned tool on PATH or in $CI_TOOLS_BIN runs first, a wrong version is not used, and with
+    neither it nor Docker, CI fails and a local run skips."""
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    out = tmp_path / "args"
+    fake = tools / tool
+    fake.write_text(f'#!/bin/sh\nif [ "$1" = "{flag}" ]; then echo "{version}"; exit 0; fi\necho "$@" > "{out}"\n')
+    fake.chmod(0o755)
+    path = tmp_path / "path"
+    path.mkdir()
+    for name in ("bash", "dirname", "head", "grep", "sh"):
+        (path / name).symlink_to(shutil.which(name) or name)
+
+    def run(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        out.unlink(missing_ok=True)
+        return subprocess.run([str(project / script)], cwd=project, capture_output=True, text=True, check=False,
+                              env={"CI": "true", **env})  # fmt: skip
+
+    # On PATH, and in the tools folder (the PATH has no docker, so only the tool can have run).
+    for env in ({"PATH": f"{tools}:{path}"}, {"PATH": str(path), "CI_TOOLS_BIN": str(tools)}):
+        result = run(env)
+        assert result.returncode == 0 and out.exists(), result.stdout + result.stderr
+    # The wrong version is not used, and without Docker CI fails naming both.
+    fake.write_text(fake.read_text().replace(version, "0.0.1"))
+    result = run({"PATH": str(path), "CI_TOOLS_BIN": str(tools)})
+    assert result.returncode == 1 and not out.exists() and "docker" in result.stdout, result.stdout
+    assert subprocess.run([str(project / script)], cwd=project, env={"PATH": str(path), "CI_TOOLS_BIN": str(tools)},
+                          capture_output=True, check=False).returncode == 0  # a local run skips  # fmt: skip
+
+
 @pytest.mark.docker
 def test_docs_secrets_with_docker(project: Path) -> None:
     assert sh("scripts/check-docs-secrets.sh", cwd=project).splitlines() == ["check-docs-secrets OK: gitleaks"]

@@ -22,20 +22,20 @@ concurrency:
 jobs:
   secrets:
     name: Secret scan
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # Allow-list false positives in .gitleaks.toml, never by disabling the job.
-      # The image and arguments live in the script, so a local run matches this one.
+      # The version and arguments live in the script, so a local run matches this one.
       - name: gitleaks
         run: scripts/check-docs-secrets.sh secrets
 [% if personal_data_guard %]
 
   personal-data:
     name: Personal data guard
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # PERSONAL_DATA_DENYLIST is an optional repository secret: one string per line.
@@ -47,7 +47,7 @@ jobs:
 
   checks:
     name: Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -61,11 +61,13 @@ jobs:
 
   workflows:
     name: Workflow lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The version and arguments live in the script: the tool on PATH or in the runner's tools
+      # folder, else the pinned Docker image, so a local run matches this one.
       - name: actionlint
-        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+        run: scripts/check-workflows.sh
 
   # The required check. A job can't run steps and call a reusable workflow, so `ci`
   # gathers the others: it passes only if each passed (or was skipped by its own `if`).
@@ -73,7 +75,7 @@ jobs:
     name: ci
     if: always()
     needs: [secrets, [% if personal_data_guard %]personal-data, [% endif %]checks, stack, workflows]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Every job passed
         env:
@@ -88,7 +90,7 @@ jobs:
   metadata:
     name: GitHub's About box
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Matches .github/repository.toml?

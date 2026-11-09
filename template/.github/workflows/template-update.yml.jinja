@@ -25,6 +25,8 @@ permissions:
 
 jobs:
   plan:
+    # Both jobs stay hosted: `update` needs the update App token (the workflows permission) and
+    # the App private key must not reach a self-hosted runner.
     runs-on: ubuntu-latest
     outputs:
       templates: ${{ steps.order.outputs.templates }}
